@@ -1,0 +1,8 @@
+# Real browser profile: cookies, session state — never commit this
+.browser-profile/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/

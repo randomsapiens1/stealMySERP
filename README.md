@@ -18,6 +18,26 @@ built entirely on free tools.
 Set `OPENROUTER_API_KEY` in Vercel Project Settings → Environment Variables,
 then deploy as normal. No other services or paid add-ons are required.
 
+## Getting past Google blocking (local personal use)
+
+The built-in SERP scraper (`direct-fetch`) is a plain HTTP request and gets
+blocked by Google fairly easily (a "JavaScript required" gate, or 429s).
+For local, personal use, `crawler-service/` runs a real, visible Chrome
+browser on your machine via Playwright and exposes it over HTTP — see
+[`crawler-service/README.md`](crawler-service/README.md) for setup. Once
+it's running, point the app at it:
+
+```
+SERP_SOURCE=local-bridge
+SERP_BRIDGE_URL=http://localhost:8787
+```
+
+in `.env.local`, then restart `npm run dev`. The SERP data source is
+swappable (`lib/serp/index.ts`) the same way the site crawler is
+(`lib/crawler/index.ts`) — routes call a registry, not an implementation
+directly, so this and the built-in scraper coexist without touching the
+rest of the app.
+
 ## How it works
 
 Each analysis run is client-orchestrated: the browser calls a series of small
