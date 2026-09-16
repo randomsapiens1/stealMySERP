@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "StealMySERP Crawler Bridge",
+  "version": "1.0.0",
+  "description": "Fetches real Google SERP data using your actual logged-in browser session, for the local StealMySERP app.",
+  "permissions": ["tabs", "scripting"],
+  "host_permissions": ["https://www.google.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "externally_connectable": {
+    "matches": ["http://localhost/*", "http://127.0.0.1/*"]
+  }
+}

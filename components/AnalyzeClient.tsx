@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { ExportButtons } from "@/components/ExportButtons";
 import { ProgressStepper, type LogEntry } from "@/components/ProgressStepper";
 import { ReportView } from "@/components/ReportView";
+import { fetchSerpViaExtension } from "@/lib/orchestrator/extensionSerp";
 import { postJson } from "@/lib/orchestrator/postJson";
 import { chunk, delay, domainOf } from "@/lib/shared/chunk";
 import type {
@@ -146,13 +147,22 @@ export function AnalyzeClient() {
           return;
         }
 
-        addLog("serp", "Fetching Google results (top 10 + PAA + related)...", "pending");
+        const useExtensionBridge = process.env.NEXT_PUBLIC_SERP_SOURCE === "extension";
+        addLog(
+          "serp",
+          useExtensionBridge
+            ? "Fetching Google results via the browser extension bridge..."
+            : "Fetching Google results (top 10 + PAA + related)...",
+          "pending"
+        );
         const serpResults: SerpResult[] = [];
         for (const sel of selected) {
-          const serp = await postJson<SerpResult>("/api/analyze/serp", {
-            query: sel.query,
-            lang: sel.languageOfQuery,
-          });
+          const serp = useExtensionBridge
+            ? await fetchSerpViaExtension(sel.query, sel.languageOfQuery)
+            : await postJson<SerpResult>("/api/analyze/serp", {
+                query: sel.query,
+                lang: sel.languageOfQuery,
+              });
           serpResults.push(serp);
           addLog(
             "serp",

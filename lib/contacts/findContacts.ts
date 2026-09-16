@@ -19,7 +19,18 @@ const SOCIAL_HOST_PATTERNS = [
 
 function isRealEmail(email: string): boolean {
   const domain = email.split("@")[1] ?? "";
-  return !IGNORED_EMAIL_DOMAINS.test(domain) && !IMAGE_LIKE_EMAIL.test(email);
+  if (IGNORED_EMAIL_DOMAINS.test(domain) || IMAGE_LIKE_EMAIL.test(email)) return false;
+
+  // Filters out JS/CSS library version strings embedded in page source
+  // that happen to match the email regex, e.g. "slick-carousel@1.8.1",
+  // "bootstrap@4.6.0", "wght@300..900" — real domains end in an
+  // alphabetic TLD and have no empty labels between dots.
+  const labels = domain.split(".");
+  const tld = labels[labels.length - 1] ?? "";
+  if (!/^[a-z]{2,}$/i.test(tld)) return false;
+  if (labels.some((label) => label.length === 0)) return false;
+
+  return true;
 }
 
 function extractEmails(

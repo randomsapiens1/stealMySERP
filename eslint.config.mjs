@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Not part of the Next.js app: a separate Python service (with its
+    // own .venv/ and gitignored .real-chrome-profile/ that can contain
+    // arbitrary vendored JS) and a plain-JS browser extension.
+    "crawler-service/**",
+    "extension/**",
   ]),
 ]);
 

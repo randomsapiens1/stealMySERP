@@ -18,9 +18,20 @@ describe("serp source registry", () => {
   });
 
   it("local-bridge degrades gracefully when no bridge is running", async () => {
-    const source = getSerpSource("local-bridge");
-    const result = await source.fetchSerp("test query", "en");
-    expect(result.error).toBeDefined();
-    expect(result.top10).toEqual([]);
+    // Point at a port nothing binds to, rather than the real default
+    // (localhost:8787) — if the actual crawler-service happens to be
+    // running locally (as intended, when someone's using the feature),
+    // this test would otherwise hang waiting on a real, slow response
+    // instead of testing the fast-fail path.
+    const original = process.env.SERP_BRIDGE_URL;
+    process.env.SERP_BRIDGE_URL = "http://127.0.0.1:1";
+    try {
+      const source = getSerpSource("local-bridge");
+      const result = await source.fetchSerp("test query", "en");
+      expect(result.error).toBeDefined();
+      expect(result.top10).toEqual([]);
+    } finally {
+      process.env.SERP_BRIDGE_URL = original;
+    }
   });
 });

@@ -22,21 +22,37 @@ then deploy as normal. No other services or paid add-ons are required.
 
 The built-in SERP scraper (`direct-fetch`) is a plain HTTP request and gets
 blocked by Google fairly easily (a "JavaScript required" gate, or 429s).
-For local, personal use, `crawler-service/` runs a real, visible Chrome
-browser on your machine via Playwright and exposes it over HTTP — see
-[`crawler-service/README.md`](crawler-service/README.md) for setup. Once
-it's running, point the app at it:
+There are two local, personal-use alternatives, in order of reliability:
+
+**1. Chrome extension bridge (recommended)** — [`extension/`](extension/README.md)
+uses your real, already-logged-in Chrome session to do the search in a
+genuine tab, with none of the automation fingerprints (`navigator.webdriver`,
+CDP) that the other options carry. In testing, searches that got blocked
+through both other paths went through immediately here. Setup: load
+`extension/` unpacked in `chrome://extensions`, then in `.env.local`:
+
+```
+NEXT_PUBLIC_SERP_SOURCE=extension
+NEXT_PUBLIC_EXTENSION_ID=<id from chrome://extensions>
+```
+
+**2. Python/Playwright crawler bridge** — [`crawler-service/`](crawler-service/README.md)
+runs a real, visible Chrome browser via Playwright and exposes it over
+HTTP. Still detectable as automated (it's a much harder bot-detection
+signal than a fresh browser fingerprint would suggest), but useful as a
+standalone service that doesn't depend on a specific open browser window.
+Setup:
 
 ```
 SERP_SOURCE=local-bridge
 SERP_BRIDGE_URL=http://localhost:8787
 ```
 
-in `.env.local`, then restart `npm run dev`. The SERP data source is
-swappable (`lib/serp/index.ts`) the same way the site crawler is
-(`lib/crawler/index.ts`) — routes call a registry, not an implementation
-directly, so this and the built-in scraper coexist without touching the
-rest of the app.
+Restart `npm run dev` after changing either. The SERP data source for
+#2 is swappable via a registry (`lib/serp/index.ts`) the same way the site
+crawler is (`lib/crawler/index.ts`); the extension bridge (#1) is wired in
+directly in `components/AnalyzeClient.tsx` since browser-extension
+messaging only works from client-side page code, not a server API route.
 
 ## How it works
 

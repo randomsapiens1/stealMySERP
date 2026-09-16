@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        width: 280px;
+        padding: 12px;
+        font-size: 13px;
+        color: #222;
+      }
+      h1 {
+        font-size: 14px;
+        margin: 0 0 8px;
+      }
+      #status {
+        color: #555;
+        margin-bottom: 10px;
+      }
+      #extensionId {
+        font-size: 11px;
+        color: #888;
+        word-break: break-all;
+        border-top: 1px solid #eee;
+        padding-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>StealMySERP Crawler Bridge</h1>
+    <div id="status">
+      Ready. The StealMySERP app talks to this extension directly — no need to click
+      anything here unless things aren't working.
+    </div>
+    <div id="extensionId"></div>
+    <script src="popup.js"></script>
+  </body>
+</html>
