@@ -1,5 +1,6 @@
-# Real browser profile: cookies, session state — never commit this
+# Real browser profile copies: cookies, session state — never commit these
 .browser-profile/
+.real-chrome-profile/
 
 # Python
 __pycache__/
