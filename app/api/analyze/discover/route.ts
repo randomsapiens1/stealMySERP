@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { discoverPages } from "@/lib/crawl/discover";
+import { getCrawler } from "@/lib/crawler";
 
 export const runtime = "nodejs";
 export const maxDuration = 45;
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await discoverPages(siteUrl, limit ?? 8);
+    const result = await getCrawler().discover(siteUrl, limit ?? 8);
     return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json(

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { extractPage } from "@/lib/crawl/extract";
+import { getCrawler } from "@/lib/crawler";
 
 export const runtime = "nodejs";
 export const maxDuration = 50;
@@ -11,8 +11,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "urls[] is required" }, { status: 400 });
   }
 
+  const crawler = getCrawler();
   const competitorPages = await Promise.all(
-    urls.map((url: string) => extractPage(url))
+    urls.map((url: string) => crawler.extract(url))
   );
   return NextResponse.json({ competitorPages });
 }

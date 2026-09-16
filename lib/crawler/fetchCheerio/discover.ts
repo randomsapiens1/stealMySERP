@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { XMLParser } from "fast-xml-parser";
+import type { DiscoverResult } from "@/lib/crawler/types";
 import { fetchTextWithTimeout } from "@/lib/shared/fetchWithTimeout";
 import { getRobotsInfo } from "./robots";
 
@@ -91,11 +92,6 @@ async function discoverViaLinkCrawl(origin: string): Promise<string[]> {
 
 function isUsablePage(url: string): boolean {
   return !NON_CONTENT_EXTENSIONS.test(url) && !SKIP_PATH_PATTERNS.test(url);
-}
-
-export interface DiscoverResult {
-  pages: string[];
-  mode: "single-page" | "sitemap" | "link-crawl";
 }
 
 function hasSpecificPath(siteUrl: string): boolean {
