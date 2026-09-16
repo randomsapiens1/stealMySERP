@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# StealMySERP
 
-## Getting Started
+Takes a website (English and/or Bangla), infers what each page is trying to rank
+for, checks real Google results for those queries (top 10 + People Also Ask +
+related searches), finds content gaps against competitors, and surfaces public
+contact info on competing sites for outreach — one report per run, no database,
+built entirely on free tools.
 
-First, run the development server:
+## Setup
+
+1. Create a free [OpenRouter](https://openrouter.ai/keys) account and API key.
+2. Copy `.env.local.example` to `.env.local` and set `OPENROUTER_API_KEY`.
+3. `npm install`
+4. `npm run dev` and open [http://localhost:3000](http://localhost:3000).
+
+## Deploying (Vercel free/Hobby tier)
+
+Set `OPENROUTER_API_KEY` in Vercel Project Settings → Environment Variables,
+then deploy as normal. No other services or paid add-ons are required.
+
+## How it works
+
+Each analysis run is client-orchestrated: the browser calls a series of small
+API routes in sequence (`/api/analyze/{discover,extract,queries,serp,
+competitors,gaps,contacts}`), each scoped to stay well under Vercel's Hobby
+function timeout, and accumulates the results in memory. Nothing is persisted
+server-side — export the finished report as Markdown or CSV from the UI.
+
+## Known limitations
+
+- **Google scraping is unofficial** (against Google's ToS) and can be blocked
+  or rate-limited at any time — it's the only free way to get top 10 + People
+  Also Ask + related searches in one place. Each query fails independently
+  with a clear message rather than breaking the whole run. In testing, this
+  dev environment's network consistently got Google's "JavaScript required"
+  interstitial rather than real results on every attempt (not a CAPTCHA — a
+  harder bot-detection gate) — this may work better from a residential IP or
+  Vercel's IP ranges, but there's no guarantee; treat it as unreliable by
+  design and verify from wherever you actually deploy.
+- **Free LLM rate limits** (OpenRouter's free models) mean a run is
+  deliberately paced and can take 1–3 minutes. OpenRouter's free-model catalog
+  changes over time — see `lib/llm/client.ts` for the current picks and how
+  to swap them if a model gets discontinued or rate-limited.
+- **No history/tracking** — every run is fresh; nothing is saved between runs.
+
+## Tests
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm test
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Covers the Google SERP HTML parser against a synthetic fixture (organic
+results, ads excluded, PAA, related searches) and a real captured
+block/interstitial page (`lib/serp/__fixtures__/`).

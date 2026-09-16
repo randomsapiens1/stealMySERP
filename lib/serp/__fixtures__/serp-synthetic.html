@@ -1,0 +1,64 @@
+<!--
+  Synthetic fixture, NOT a live capture. Google's actual markup is obfuscated
+  and changes often (see serp-blocked-real.html for a real captured response
+  showing the JS-challenge interstitial this scraper has to work around).
+  This fixture exists to regression-test parseSerp.ts's structural heuristics
+  (h3 + ancestor link inside #rso, data-q for PAA, "Related searches" marker
+  text) against a stable, hand-built shape. Refresh/replace with a real
+  capture when possible and when Google's markup is confirmed to still match.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<body>
+  <div id="search">
+    <div id="rso">
+      <div class="g" data-hveid="1">
+        <a href="https://example-competitor-1.com/best-running-shoes">
+          <h3>Best Running Shoes for Beginners in 2026</h3>
+        </a>
+        <div>
+          <span>A complete guide to choosing your first pair of running shoes, covering cushioning, fit, and budget options for new runners.</span>
+        </div>
+      </div>
+      <div class="g" data-hveid="2">
+        <a href="https://example-competitor-2.com/beginner-shoe-guide">
+          <h3>Beginner Running Shoe Guide: What to Know</h3>
+        </a>
+        <div>
+          <span>Everything first-time runners need to know before buying shoes, including how to get properly fitted at a store.</span>
+        </div>
+      </div>
+      <div class="g" data-hveid="3" data-text-ad="1">
+        <a href="https://example-ad.com/shoes">
+          <h3>Buy Running Shoes Now - Sale</h3>
+        </a>
+        <div><span>Sponsored listing that should be excluded from organic results.</span></div>
+      </div>
+      <div class="g" data-hveid="4">
+        <a href="https://example-competitor-3.com/top-picks">
+          <h3>Top 10 Running Shoes Reviewed by Experts</h3>
+        </a>
+        <div>
+          <span>Our editors tested dozens of pairs to find the best options across budgets and foot types.</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div>People also ask</div>
+      <div data-q="What running shoes are best for beginners?">What running shoes are best for beginners?</div>
+      <div data-q="How do I know my running shoe size?">How do I know my running shoe size?</div>
+      <div data-q="Are expensive running shoes worth it?">Are expensive running shoes worth it?</div>
+    </div>
+
+    <div>
+      <div>Related searches</div>
+      <div>
+        <a href="/search?q=best+running+shoes+for+flat+feet">best running shoes for flat feet</a>
+        <a href="/search?q=running+shoes+for+beginners+reddit">running shoes for beginners reddit</a>
+        <a href="/search?q=cheap+running+shoes+for+beginners">cheap running shoes for beginners</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
