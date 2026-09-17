@@ -157,7 +157,12 @@ def _parse_ai_overview(soup: BeautifulSoup) -> AiOverview | None:
     """Best-effort only: Google's AI Overview is JS-rendered client-side and
     may still be missing from page.content() depending on load timing, even
     in a real browser. Heuristic: find the visible "AI Overview" label,
-    then treat a nearby ancestor with substantial text as the content."""
+    then within a nearby ancestor, take the single longest text-bearing
+    child as the actual generated answer — NOT the whole container's
+    concatenated text, which also picks up sibling UI chrome (an "AI
+    Overview isn't available" fallback message that can coexist in the
+    DOM, prompt chips, duplicated cards). The real answer is reliably the
+    longest single block, same technique organic snippets already use."""
     marker = None
     for el in soup.find_all(True):
         if el.get_text(strip=True) == "AI Overview":
@@ -168,26 +173,38 @@ def _parse_ai_overview(soup: BeautifulSoup) -> AiOverview | None:
         return None
 
     container = marker
-    for _ in range(4):
+    for _ in range(5):
         if container.parent is None:
             break
         container = container.parent
         if len(container.get_text(strip=True)) > 200:
             break
 
-    text = " ".join(container.get_text(" ", strip=True).split())
-    if len(text) < 50:
+    longest = ""
+    for el in container.find_all(["div", "span", "p"]):
+        if el.find(["script", "style"]):
+            continue
+        text = " ".join(el.get_text(" ", strip=True).split())
+        if len(text) > len(longest) and len(text) < 3000:
+            longest = text
+
+    if len(longest) < 100 or "ai overview is not available" in longest.lower():
         return None
 
     sources = []
     seen: set[str] = set()
     for a in container.find_all("a", href=True):
         href = a["href"]
-        if href.startswith("http") and href not in seen:
+        if (
+            href.startswith("http")
+            and href not in seen
+            and "policies.google.com" not in href
+            and "support.google.com" not in href
+        ):
             seen.add(href)
             sources.append(href)
 
-    return AiOverview(text=text[:3000], sources=sources[:10])
+    return AiOverview(text=longest, sources=sources[:10])
 
 
 def parse_serp_html(html: str, searched_query: str = "") -> ParsedSerp:

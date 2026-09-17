@@ -12,13 +12,22 @@
 <body>
   <div id="search">
     <div>
+      <!-- Mirrors real, messy Google markup: a hidden fallback message, a
+           short prompt chip, and a <script> can all sit alongside the
+           actual generated answer under the same ancestor. Regression-tests
+           that parseAiOverview picks the real longest block and ignores
+           the rest, per the extension bug found in live testing. -->
+      <div style="display:none">An AI Overview is not available for this search. Can&#39;t generate an AI overview right now. Try again later.</div>
       <div>AI Overview</div>
+      <div>AI Mode reply for best running shoes for beginners</div>
+      <script>try{window.sn={foo:function(){return 1}}}catch(e){}</script>
       <div>
         Beginners should prioritize cushioning, a true-to-size fit, and a moderate price point.
         Many runners start with neutral trainers and get fitted at a specialty running store
         before committing to a specific model. Expect to spend a break-in period of a few runs.
         <a href="https://example-competitor-1.com/best-running-shoes">example-competitor-1.com</a>
         <a href="https://example-competitor-3.com/top-picks">example-competitor-3.com</a>
+        <a href="https://support.google.com/websearch/answer/16517651">About this result</a>
       </div>
     </div>
 

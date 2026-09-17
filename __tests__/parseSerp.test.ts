@@ -44,14 +44,22 @@ describe("parseSerpHtml", () => {
     );
   });
 
-  it("extracts an AI Overview and its cited sources when present", () => {
+  it("extracts an AI Overview, ignoring sibling fallback/script/prompt-chip noise", () => {
     const html = loadFixture("serp-synthetic.html");
     const parsed = parseSerpHtml(html);
 
     expect(parsed.aiOverview).not.toBeNull();
     expect(parsed.aiOverview?.text).toContain("cushioning");
+    // Real answer, not the sibling fallback/error text or script contents.
+    expect(parsed.aiOverview?.text).not.toContain("is not available");
+    expect(parsed.aiOverview?.text).not.toContain("AI Mode reply");
+    expect(parsed.aiOverview?.text).not.toContain("window.sn");
     expect(parsed.aiOverview?.sources).toContain(
       "https://example-competitor-1.com/best-running-shoes"
+    );
+    // Google's own help/policy links aren't real content citations.
+    expect(parsed.aiOverview?.sources.some((s) => s.includes("support.google.com"))).toBe(
+      false
     );
   });
 

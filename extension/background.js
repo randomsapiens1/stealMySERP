@@ -145,9 +145,13 @@ function extractSerpFromPage(searchedQuery) {
   }
 
   // Best-effort: find the visible "AI Overview" label Google shows, then
-  // treat a nearby ancestor with substantial text as the overview content.
-  // Even in a real rendered browser this can be absent (not every query
-  // gets one) or still mid-stream despite the settle delay.
+  // within a nearby ancestor, take the single longest text-bearing child
+  // as the actual generated answer — NOT the whole container's
+  // concatenated text, which also picks up sibling UI chrome (an "AI
+  // Overview isn't available" fallback message that can coexist in the
+  // DOM, "AI Mode" prompt chips, duplicated result cards, and even raw
+  // <script> text via textContent). The real answer is reliably the
+  // longest single block, same technique organic snippets already use.
   let aiOverview = null;
   let aiOverviewMarker = null;
   document.querySelectorAll("*").forEach((el) => {
@@ -157,21 +161,31 @@ function extractSerpFromPage(searchedQuery) {
   });
   if (aiOverviewMarker) {
     let container = aiOverviewMarker;
-    for (let i = 0; i < 4 && container.parentElement; i++) {
+    for (let i = 0; i < 5 && container.parentElement; i++) {
       container = container.parentElement;
       if (container.textContent.trim().length > 200) break;
     }
-    const text = container.textContent.replace(/\s+/g, " ").trim();
-    if (text.length >= 50) {
+
+    let longest = "";
+    container.querySelectorAll("div, span, p").forEach((el) => {
+      if (el.querySelector("script, style")) return;
+      const text = el.textContent.replace(/\s+/g, " ").trim();
+      if (text.length > longest.length && text.length < 3000) longest = text;
+    });
+
+    if (longest.length >= 100 && !longest.toLowerCase().includes("ai overview is not available")) {
+      const ownHost = location.hostname;
       const sources = [];
       const sourcesSeen = new Set();
       container.querySelectorAll("a[href^='http']").forEach((a) => {
-        if (!sourcesSeen.has(a.href)) {
-          sourcesSeen.add(a.href);
-          sources.push(a.href);
+        const url = a.href;
+        if (sourcesSeen.has(url) || url.includes(ownHost) || url.includes("policies.google.com") || url.includes("support.google.com")) {
+          return;
         }
+        sourcesSeen.add(url);
+        sources.push(url);
       });
-      aiOverview = { text: text.slice(0, 3000), sources: sources.slice(0, 10) };
+      aiOverview = { text: longest, sources: sources.slice(0, 10) };
     }
   }
 
