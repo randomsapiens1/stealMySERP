@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ExportButtons } from "@/components/ExportButtons";
@@ -257,7 +258,15 @@ export function AnalyzeClient() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold mb-1 break-all">{siteUrl}</h1>
+      <div className="flex items-start justify-between gap-4 mb-1">
+        <h1 className="text-xl font-semibold break-all">{siteUrl}</h1>
+        <Link
+          href="/"
+          className="shrink-0 rounded-md border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-900"
+        >
+          New analysis
+        </Link>
+      </div>
       <p className="text-sm text-gray-500 mb-6">
         {status === "running" && "Analysis in progress — this can take 1–3 minutes..."}
         {status === "done" && "Analysis complete."}
