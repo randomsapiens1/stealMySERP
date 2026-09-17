@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ExportButtons } from "@/components/ExportButtons";
+import { Logo } from "@/components/Logo";
 import { ProgressStepper, type LogEntry } from "@/components/ProgressStepper";
 import { ReportView } from "@/components/ReportView";
 import { fetchSerpViaExtension } from "@/lib/orchestrator/extensionSerp";
@@ -269,6 +270,9 @@ export function AnalyzeClient() {
 
   return (
     <div>
+      <div className="flex justify-center mb-6">
+        <Logo className="h-14 w-auto" />
+      </div>
       <div className="flex items-start justify-between gap-4 mb-1">
         <h1 className="text-xl font-semibold break-all">{siteUrl}</h1>
         <div className="flex gap-2 shrink-0">

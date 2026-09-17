@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
+import { Logo } from "@/components/Logo";
 
 export default function Home() {
   const router = useRouter();
@@ -34,13 +35,7 @@ export default function Home() {
         </div>
 
         <div className="flex justify-center mb-8">
-          {/* eslint-disable-next-line @next/next/no-img-element -- static
-              local SVG asset, next/image adds no benefit here */}
-          <img
-            src="/logo.svg"
-            alt="StealMySERP"
-            className="h-24 sm:h-28 w-auto dark:invert"
-          />
+          <Logo className="h-24 sm:h-28 w-auto" />
         </div>
 
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-8 text-center">

@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { HistoryDashboard } from "@/components/history/HistoryDashboard";
+import { Logo } from "@/components/Logo";
 
 export default function HistoryPage() {
   return (
     <main className="flex-1 px-4 py-10">
       <div className="mx-auto max-w-4xl">
+        <div className="flex justify-center mb-6">
+          <Logo className="h-14 w-auto" />
+        </div>
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-semibold">History</h1>
           <Link
