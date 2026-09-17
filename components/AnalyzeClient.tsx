@@ -244,6 +244,17 @@ export function AnalyzeClient() {
           "success"
         );
 
+        try {
+          await postJson("/api/history/save", runReport);
+          addLog("history", "Saved to history dashboard.", "success");
+        } catch (err) {
+          addLog(
+            "history",
+            `Couldn't save to history: ${err instanceof Error ? err.message : "unknown error"}`,
+            "error"
+          );
+        }
+
         setStatus("done");
       } catch (err) {
         setFatalMessage(err instanceof Error ? err.message : "Analysis failed");
@@ -260,12 +271,20 @@ export function AnalyzeClient() {
     <div>
       <div className="flex items-start justify-between gap-4 mb-1">
         <h1 className="text-xl font-semibold break-all">{siteUrl}</h1>
-        <Link
-          href="/"
-          className="shrink-0 rounded-md border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-900"
-        >
-          New analysis
-        </Link>
+        <div className="flex gap-2 shrink-0">
+          <Link
+            href="/history"
+            className="rounded-md border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-900"
+          >
+            History
+          </Link>
+          <Link
+            href="/"
+            className="rounded-md border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-900"
+          >
+            New analysis
+          </Link>
+        </div>
       </div>
       <p className="text-sm text-gray-500 mb-6">
         {status === "running" && "Analysis in progress — this can take 1–3 minutes..."}

@@ -3,8 +3,7 @@
 Takes a website (English and/or Bangla), infers what each page is trying to rank
 for, checks real Google results for those queries (top 10 + People Also Ask +
 related searches), finds content gaps against competitors, and surfaces public
-contact info on competing sites for outreach — one report per run, no database,
-built entirely on free tools.
+contact info on competing sites for outreach — built entirely on free tools.
 
 ## Setup
 
@@ -59,25 +58,32 @@ messaging only works from client-side page code, not a server API route.
 Each analysis run is client-orchestrated: the browser calls a series of small
 API routes in sequence (`/api/analyze/{discover,extract,queries,serp,
 competitors,gaps,contacts}`), each scoped to stay well under Vercel's Hobby
-function timeout, and accumulates the results in memory. Nothing is persisted
-server-side — export the finished report as Markdown or CSV from the UI.
+function timeout, and accumulates the results in memory. Export the finished
+report as Markdown or CSV from the UI. When a run finishes, every analyzed
+page is also saved to a local history dashboard (see below).
+
+## History dashboard (local only)
+
+Every analyzed page is automatically saved to a local SQLite database
+(`data/stealmyserp.db`, gitignored) — visit `/history` to browse everything
+you've ever checked, search by site/page/topic, expand a row for full detail
+(queries, rankings, content gaps, contacts), delete entries, or export the
+visible rows to CSV. This is local-machine-only: a deployed serverless
+function has no persistent disk, so this feature only works with
+`npm run dev`. See `lib/db/` for the schema and `app/api/history/*` for the
+routes.
 
 ## Known limitations
 
 - **Google scraping is unofficial** (against Google's ToS) and can be blocked
-  or rate-limited at any time — it's the only free way to get top 10 + People
-  Also Ask + related searches in one place. Each query fails independently
-  with a clear message rather than breaking the whole run. In testing, this
-  dev environment's network consistently got Google's "JavaScript required"
-  interstitial rather than real results on every attempt (not a CAPTCHA — a
-  harder bot-detection gate) — this may work better from a residential IP or
-  Vercel's IP ranges, but there's no guarantee; treat it as unreliable by
-  design and verify from wherever you actually deploy.
+  or rate-limited at any time. The Chrome extension bridge (above) sidesteps
+  this reliably in testing; the built-in `direct-fetch` scraper does not.
 - **Free LLM rate limits** (OpenRouter's free models) mean a run is
   deliberately paced and can take 1–3 minutes. OpenRouter's free-model catalog
   changes over time — see `lib/llm/client.ts` for the current picks and how
   to swap them if a model gets discontinued or rate-limited.
-- **No history/tracking** — every run is fresh; nothing is saved between runs.
+- **History is local-only** — it won't work (or persist) on a Vercel
+  deployment; see above.
 
 ## Tests
 
@@ -85,6 +91,7 @@ server-side — export the finished report as Markdown or CSV from the UI.
 npm test
 ```
 
-Covers the Google SERP HTML parser against a synthetic fixture (organic
-results, ads excluded, PAA, related searches) and a real captured
-block/interstitial page (`lib/serp/__fixtures__/`).
+Covers the Google SERP HTML parser (synthetic fixture + a real captured
+block/interstitial page), the crawler/SERP-source registries, contact-email
+extraction (including a regression for library-version false positives), and
+history persistence (save/search/delete against an in-memory SQLite db).

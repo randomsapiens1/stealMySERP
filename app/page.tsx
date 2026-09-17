@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
@@ -23,7 +24,15 @@ export default function Home() {
   return (
     <main className="flex-1 flex items-center justify-center px-4 py-16">
       <div className="w-full max-w-xl">
-        <h1 className="text-3xl font-semibold mb-2">StealMySERP</h1>
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-3xl font-semibold">StealMySERP</h1>
+          <Link
+            href="/history"
+            className="rounded-md border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-900"
+          >
+            History
+          </Link>
+        </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
           Crawls your site (English &amp; Bangla), infers target queries, checks real
           Google results (top 10 + People Also Ask + related searches), finds content
