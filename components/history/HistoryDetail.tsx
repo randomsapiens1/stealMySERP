@@ -5,47 +5,59 @@ function rankLabel(q: AnalyzedPageRecord["queries"][number]): string {
   return q.verifiedRank === null ? "Not ranking" : `#${q.verifiedRank}`;
 }
 
+function DetailCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 p-4">
+      <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export function HistoryDetail({ record }: { record: AnalyzedPageRecord }) {
   return (
-    <div className="border-t border-gray-200 dark:border-gray-800 p-4 text-sm space-y-4 bg-gray-50 dark:bg-gray-950">
+    <div className="p-4 pt-0 text-sm grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {record.queries.length > 0 && (
-        <div>
-          <div className="font-medium mb-1">Queries</div>
+        <DetailCard title="Queries">
           <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className="text-left border-b border-gray-200 dark:border-gray-800">
-                <th className="py-1 pr-4">Query</th>
-                <th className="py-1 pr-4">Confidence</th>
-                <th className="py-1 pr-4">Verified ranking</th>
+              <tr className="text-left border-b border-gray-200 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400">
+                <th className="py-1 pr-3 font-medium">Query</th>
+                <th className="py-1 pr-3 font-medium">Conf.</th>
+                <th className="py-1 font-medium">Rank</th>
               </tr>
             </thead>
             <tbody>
               {record.queries.map((q) => (
-                <tr key={q.query} className="border-b border-gray-100 dark:border-gray-900">
-                  <td className="py-1 pr-4">{q.query}</td>
-                  <td className="py-1 pr-4">{Math.round(q.confidence * 100)}%</td>
-                  <td className="py-1 pr-4">{rankLabel(q)}</td>
+                <tr key={q.query} className="border-b border-gray-100 dark:border-gray-900 last:border-0">
+                  <td className="py-1.5 pr-3">{q.query}</td>
+                  <td className="py-1.5 pr-3 text-gray-500 dark:text-gray-400 tabular-nums">
+                    {Math.round(q.confidence * 100)}%
+                  </td>
+                  <td className="py-1.5 tabular-nums">{rankLabel(q)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </DetailCard>
       )}
 
       {record.gapReports.length > 0 && (
-        <div>
-          <div className="font-medium mb-1">Content gaps</div>
-          <div className="space-y-2">
+        <DetailCard title="Content gaps">
+          <div className="space-y-3">
             {record.gapReports.map((gap) => (
               <div key={gap.query}>
-                <div className="text-xs text-gray-500 mb-1">&quot;{gap.query}&quot;</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">&quot;{gap.query}&quot;</div>
                 {gap.error ? (
                   <p className="text-red-500">{gap.error}</p>
                 ) : (
-                  <ul className="list-disc list-inside">
+                  <ul className="list-disc list-inside space-y-0.5">
                     {gap.contentGaps.map((g, i) => (
                       <li key={i}>
-                        {g.topic} — {g.whyItMatters}
+                        <span className="font-medium">{g.topic}</span>{" "}
+                        <span className="text-gray-500 dark:text-gray-400">— {g.whyItMatters}</span>
                       </li>
                     ))}
                   </ul>
@@ -53,33 +65,30 @@ export function HistoryDetail({ record }: { record: AnalyzedPageRecord }) {
               </div>
             ))}
           </div>
-        </div>
+        </DetailCard>
       )}
 
       {record.contacts.length > 0 && (
-        <div>
-          <div className="font-medium mb-1">Contacts</div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="text-left border-b border-gray-200 dark:border-gray-800">
-                  <th className="py-1 pr-4">Domain</th>
-                  <th className="py-1 pr-4">Emails</th>
-                  <th className="py-1 pr-4">Confidence</th>
+        <DetailCard title="Contacts">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="text-left border-b border-gray-200 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400">
+                <th className="py-1 pr-3 font-medium">Domain</th>
+                <th className="py-1 pr-3 font-medium">Emails</th>
+                <th className="py-1 font-medium">Conf.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {record.contacts.map((c) => (
+                <tr key={c.domain} className="border-b border-gray-100 dark:border-gray-900 last:border-0">
+                  <td className="py-1.5 pr-3 break-all">{c.domain}</td>
+                  <td className="py-1.5 pr-3 break-all">{c.emails.join(", ") || "—"}</td>
+                  <td className="py-1.5">{c.confidence}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {record.contacts.map((c) => (
-                  <tr key={c.domain} className="border-b border-gray-100 dark:border-gray-900">
-                    <td className="py-1 pr-4">{c.domain}</td>
-                    <td className="py-1 pr-4">{c.emails.join(", ") || "—"}</td>
-                    <td className="py-1 pr-4">{c.confidence}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              ))}
+            </tbody>
+          </table>
+        </DetailCard>
       )}
     </div>
   );
