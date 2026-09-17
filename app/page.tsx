@@ -24,8 +24,7 @@ export default function Home() {
   return (
     <main className="flex-1 flex items-center justify-center px-4 py-16">
       <div className="w-full max-w-xl">
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-3xl font-semibold">StealMySERP</h1>
+        <div className="flex justify-end mb-4">
           <Link
             href="/history"
             className="rounded-md border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-900"
@@ -33,7 +32,18 @@ export default function Home() {
             History
           </Link>
         </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
+
+        <div className="flex justify-center mb-8">
+          {/* eslint-disable-next-line @next/next/no-img-element -- static
+              local SVG asset, next/image adds no benefit here */}
+          <img
+            src="/logo.svg"
+            alt="StealMySERP"
+            className="h-24 sm:h-28 w-auto dark:invert"
+          />
+        </div>
+
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-8 text-center">
           Crawls your site (English &amp; Bangla), infers target queries, checks real
           Google results (top 10 + People Also Ask + related searches), finds content
           gaps, and surfaces public outreach contacts — built entirely on free tools.
