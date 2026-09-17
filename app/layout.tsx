@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import "./globals.css";
 
@@ -42,10 +43,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       // avoiding a flash of the wrong theme (same approach next-themes uses).
       suppressHydrationWarning
     >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-      </head>
       <body className="min-h-full flex flex-col">
+        <Script id="theme-init" strategy="beforeInteractive">
+          {THEME_INIT_SCRIPT}
+        </Script>
         <ThemeToggle />
         {children}
       </body>
