@@ -7,6 +7,12 @@ import PQueue from "p-queue";
 // (filter for ":free") if these start 404ing again.
 const PRIMARY_MODEL = "nvidia/nemotron-3-super-120b-a12b:free";
 const FALLBACK_MODEL = "nex-agi/nex-n2.5-pro:free";
+// Without a bound, a single hung request can occupy the queue's only
+// concurrency slot forever, since PQueue won't advance to the next job
+// until the current one settles — silently freezing every future LLM
+// call in this process (found by exactly this happening after an
+// abandoned run left a call hanging).
+const REQUEST_TIMEOUT_MS = 60_000;
 
 let openrouter: OpenAI | null = null;
 
@@ -45,14 +51,17 @@ async function callModel(
   systemPrompt: string,
   userPrompt: string
 ): Promise<string> {
-  const completion = await getClient().chat.completions.create({
-    model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    temperature: 0.3,
-  });
+  const completion = await getClient().chat.completions.create(
+    {
+      model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.3,
+    },
+    { timeout: REQUEST_TIMEOUT_MS }
+  );
   return completion.choices[0]?.message?.content ?? "";
 }
 
