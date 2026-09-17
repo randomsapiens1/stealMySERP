@@ -19,7 +19,15 @@ export const localBridgeSource: SerpSource = {
   async fetchSerp(query: string, lang: Lang = "en"): Promise<SerpResult> {
     const { hl, gl } = localeForLang(lang);
     const bridgeUrl = process.env.SERP_BRIDGE_URL ?? DEFAULT_BRIDGE_URL;
-    const base: SerpResult = { query, hl, gl, top10: [], paa: [], relatedSearches: [] };
+    const base: SerpResult = {
+      query,
+      hl,
+      gl,
+      top10: [],
+      paa: [],
+      relatedSearches: [],
+      aiOverview: null,
+    };
 
     try {
       const res = await fetch(`${bridgeUrl}/serp`, {

@@ -44,6 +44,24 @@ describe("parseSerpHtml", () => {
     );
   });
 
+  it("extracts an AI Overview and its cited sources when present", () => {
+    const html = loadFixture("serp-synthetic.html");
+    const parsed = parseSerpHtml(html);
+
+    expect(parsed.aiOverview).not.toBeNull();
+    expect(parsed.aiOverview?.text).toContain("cushioning");
+    expect(parsed.aiOverview?.sources).toContain(
+      "https://example-competitor-1.com/best-running-shoes"
+    );
+  });
+
+  it("filters the search query itself out of People Also Ask matches", () => {
+    const html = loadFixture("serp-synthetic.html");
+    const parsed = parseSerpHtml(html, "best running shoes for beginners");
+
+    expect(parsed.paa).not.toContain("best running shoes for beginners");
+  });
+
   it("detects a real captured Google JS-challenge/block page", () => {
     const html = loadFixture("serp-blocked-real.html");
     expect(looksBlocked(html)).toBe(true);

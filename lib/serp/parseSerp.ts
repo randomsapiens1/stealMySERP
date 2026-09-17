@@ -1,11 +1,12 @@
 import * as cheerio from "cheerio";
 import type { AnyNode } from "domhandler";
-import type { SerpOrganicResult } from "@/lib/shared/types";
+import type { AiOverview, SerpOrganicResult } from "@/lib/shared/types";
 
 export interface ParsedSerp {
   top10: SerpOrganicResult[];
   paa: string[];
   relatedSearches: string[];
+  aiOverview: AiOverview | null;
   blocked: boolean;
 }
 
@@ -66,12 +67,14 @@ function parseOrganicResults($: cheerio.CheerioAPI): SerpOrganicResult[] {
   return results.slice(0, 10);
 }
 
-function parsePeopleAlsoAsk($: cheerio.CheerioAPI): string[] {
+function parsePeopleAlsoAsk($: cheerio.CheerioAPI, searchedQuery: string): string[] {
   const questions = new Set<string>();
 
+  // data-q also fires on the search box's own query, not just PAA
+  // questions — filter that out explicitly.
   $("[data-q]").each((_, el) => {
     const q = $(el).attr("data-q")?.trim();
-    if (q) questions.add(q);
+    if (q && q !== searchedQuery) questions.add(q);
   });
 
   if (questions.size === 0) {
@@ -109,16 +112,50 @@ function parseRelatedSearches($: cheerio.CheerioAPI): string[] {
   return Array.from(related);
 }
 
-export function parseSerpHtml(html: string): ParsedSerp {
+// Best-effort only: Google's AI Overview is JS-rendered and frequently
+// absent from a plain fetch()'s static HTML response entirely — this is
+// the least reliable field this parser extracts. Heuristic: find the
+// visible "AI Overview" label Google shows, then treat a nearby ancestor
+// with substantial text as the overview content.
+function parseAiOverview($: cheerio.CheerioAPI): AiOverview | null {
+  const marker = $("*")
+    .filter((_, el) => $(el).text().trim() === "AI Overview")
+    .first();
+
+  if (!marker.length) return null;
+
+  let container = marker;
+  for (let i = 0; i < 4; i++) {
+    const parent = container.parent();
+    if (!parent.length) break;
+    container = parent;
+    if (container.text().trim().length > 200) break;
+  }
+
+  const text = container.clone().find("script, style").remove().end().text().replace(/\s+/g, " ").trim();
+
+  if (text.length < 50) return null;
+
+  const sources = new Set<string>();
+  container.find("a[href^='http']").each((_, a) => {
+    const href = $(a).attr("href");
+    if (href) sources.add(href);
+  });
+
+  return { text: text.slice(0, 3000), sources: Array.from(sources).slice(0, 10) };
+}
+
+export function parseSerpHtml(html: string, searchedQuery = ""): ParsedSerp {
   if (looksBlocked(html)) {
-    return { top10: [], paa: [], relatedSearches: [], blocked: true };
+    return { top10: [], paa: [], relatedSearches: [], aiOverview: null, blocked: true };
   }
 
   const $ = cheerio.load(html);
   return {
     top10: parseOrganicResults($),
-    paa: parsePeopleAlsoAsk($),
+    paa: parsePeopleAlsoAsk($, searchedQuery),
     relatedSearches: parseRelatedSearches($),
+    aiOverview: parseAiOverview($),
     blocked: false,
   };
 }

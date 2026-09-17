@@ -44,6 +44,22 @@ export function SearchLandscape({ report }: { report: RunReport }) {
                       {rankLabel(yourPosition)}
                     </div>
 
+                    {serp.aiOverview && (
+                      <div className="mb-3 rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 p-3">
+                        <div className="text-sm font-medium mb-1">
+                          🤖 Google AI Overview
+                        </div>
+                        <p className="text-sm text-gray-700 dark:text-gray-300">
+                          {serp.aiOverview.text}
+                        </p>
+                        {serp.aiOverview.sources.length > 0 && (
+                          <p className="text-xs text-gray-500 mt-2 break-all">
+                            Cited: {serp.aiOverview.sources.join(", ")}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     {serp.top10.length > 0 && (
                       <div className="mb-3">
                         <div className="text-sm font-medium mb-1">Top 10</div>

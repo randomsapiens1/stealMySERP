@@ -279,7 +279,7 @@ async def serp(req: SerpRequest) -> dict[str, Any]:
             waited += CAPTCHA_POLL_INTERVAL_SECONDS
             html = await _get_stable_content(page)
 
-        parsed = parse_serp_html(html)
+        parsed = parse_serp_html(html, req.query)
 
         if parsed.blocked:
             return {
@@ -287,6 +287,7 @@ async def serp(req: SerpRequest) -> dict[str, Any]:
                 "top10": [],
                 "paa": [],
                 "relatedSearches": [],
+                "aiOverview": None,
                 "blocked": True,
                 "error": "Google is still blocking this request after waiting for manual verification.",
             }
@@ -296,6 +297,11 @@ async def serp(req: SerpRequest) -> dict[str, Any]:
             "top10": [r.__dict__ for r in parsed.top10],
             "paa": parsed.paa,
             "relatedSearches": parsed.related_searches,
+            "aiOverview": (
+                {"text": parsed.ai_overview.text, "sources": parsed.ai_overview.sources}
+                if parsed.ai_overview
+                else None
+            ),
         }
 
 

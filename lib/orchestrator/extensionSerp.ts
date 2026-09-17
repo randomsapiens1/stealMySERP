@@ -35,7 +35,15 @@ export function isExtensionBridgeConfigured(): boolean {
 
 export async function fetchSerpViaExtension(query: string, lang: Lang): Promise<SerpResult> {
   const { hl, gl } = localeForLang(lang);
-  const base: SerpResult = { query, hl, gl, top10: [], paa: [], relatedSearches: [] };
+  const base: SerpResult = {
+    query,
+    hl,
+    gl,
+    top10: [],
+    paa: [],
+    relatedSearches: [],
+    aiOverview: null,
+  };
 
   const extensionId = process.env.NEXT_PUBLIC_EXTENSION_ID;
   const runtime = window.chrome?.runtime;

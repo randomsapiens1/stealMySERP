@@ -11,7 +11,10 @@
 const MIN_DELAY_MS = 3000;
 const MAX_DELAY_MS = 7000;
 const NAV_TIMEOUT_MS = 20000;
-const SETTLE_DELAY_MS = 1500;
+// AI Overview streams in asynchronously after the rest of the page has
+// loaded (it's generated, not static) — needs more settle time than the
+// rest of the results to have a chance of being present when we read the DOM.
+const SETTLE_DELAY_MS = 3000;
 
 let dedicatedTabId = null;
 // Serializes concurrent requests onto one queue so searches happen one at
@@ -141,7 +144,38 @@ function extractSerpFromPage(searchedQuery) {
     });
   }
 
-  return { blocked: false, top10, paa, relatedSearches };
+  // Best-effort: find the visible "AI Overview" label Google shows, then
+  // treat a nearby ancestor with substantial text as the overview content.
+  // Even in a real rendered browser this can be absent (not every query
+  // gets one) or still mid-stream despite the settle delay.
+  let aiOverview = null;
+  let aiOverviewMarker = null;
+  document.querySelectorAll("*").forEach((el) => {
+    if (aiOverviewMarker) return;
+    if (el.children.length > 0) return;
+    if (el.textContent.trim() === "AI Overview") aiOverviewMarker = el;
+  });
+  if (aiOverviewMarker) {
+    let container = aiOverviewMarker;
+    for (let i = 0; i < 4 && container.parentElement; i++) {
+      container = container.parentElement;
+      if (container.textContent.trim().length > 200) break;
+    }
+    const text = container.textContent.replace(/\s+/g, " ").trim();
+    if (text.length >= 50) {
+      const sources = [];
+      const sourcesSeen = new Set();
+      container.querySelectorAll("a[href^='http']").forEach((a) => {
+        if (!sourcesSeen.has(a.href)) {
+          sourcesSeen.add(a.href);
+          sources.push(a.href);
+        }
+      });
+      aiOverview = { text: text.slice(0, 3000), sources: sources.slice(0, 10) };
+    }
+  }
+
+  return { blocked: false, top10, paa, relatedSearches, aiOverview };
 }
 
 async function handleSerpSearch({ query, hl, gl }) {

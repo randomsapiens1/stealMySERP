@@ -27,6 +27,7 @@ export async function fetchSerp(
     top10: [],
     paa: [],
     relatedSearches: [],
+    aiOverview: null,
   };
 
   try {
@@ -52,12 +53,13 @@ export async function fetchSerp(
       };
     }
 
-    const parsed = parseSerpHtml(html);
+    const parsed = parseSerpHtml(html, query);
     return {
       ...base,
       top10: parsed.top10,
       paa: parsed.paa,
       relatedSearches: parsed.relatedSearches,
+      aiOverview: parsed.aiOverview,
     };
   } catch (err) {
     return {

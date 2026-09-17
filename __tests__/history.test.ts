@@ -34,6 +34,7 @@ function buildReport(): RunReport {
         ],
         paa: [],
         relatedSearches: [],
+        aiOverview: null,
       },
     ],
     gapReports: [

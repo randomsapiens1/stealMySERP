@@ -36,10 +36,17 @@ class OrganicResult:
 
 
 @dataclass
+class AiOverview:
+    text: str
+    sources: list[str] = field(default_factory=list)
+
+
+@dataclass
 class ParsedSerp:
     top10: list[OrganicResult] = field(default_factory=list)
     paa: list[str] = field(default_factory=list)
     related_searches: list[str] = field(default_factory=list)
+    ai_overview: AiOverview | None = None
     blocked: bool = False
 
 
@@ -98,13 +105,15 @@ def _parse_organic_results(soup: BeautifulSoup) -> list[OrganicResult]:
     return results
 
 
-def _parse_people_also_ask(soup: BeautifulSoup) -> list[str]:
+def _parse_people_also_ask(soup: BeautifulSoup, searched_query: str) -> list[str]:
     questions: list[str] = []
     seen: set[str] = set()
 
+    # data-q also fires on the search box's own query, not just PAA
+    # questions — filter that out explicitly.
     for el in soup.find_all(attrs={"data-q": True}):
         q = (el.get("data-q") or "").strip()
-        if q and q not in seen:
+        if q and q != searched_query and q not in seen:
             seen.add(q)
             questions.append(q)
 
@@ -144,14 +153,52 @@ def _parse_related_searches(soup: BeautifulSoup) -> list[str]:
     return related
 
 
-def parse_serp_html(html: str) -> ParsedSerp:
+def _parse_ai_overview(soup: BeautifulSoup) -> AiOverview | None:
+    """Best-effort only: Google's AI Overview is JS-rendered client-side and
+    may still be missing from page.content() depending on load timing, even
+    in a real browser. Heuristic: find the visible "AI Overview" label,
+    then treat a nearby ancestor with substantial text as the content."""
+    marker = None
+    for el in soup.find_all(True):
+        if el.get_text(strip=True) == "AI Overview":
+            marker = el
+            break
+
+    if marker is None:
+        return None
+
+    container = marker
+    for _ in range(4):
+        if container.parent is None:
+            break
+        container = container.parent
+        if len(container.get_text(strip=True)) > 200:
+            break
+
+    text = " ".join(container.get_text(" ", strip=True).split())
+    if len(text) < 50:
+        return None
+
+    sources = []
+    seen: set[str] = set()
+    for a in container.find_all("a", href=True):
+        href = a["href"]
+        if href.startswith("http") and href not in seen:
+            seen.add(href)
+            sources.append(href)
+
+    return AiOverview(text=text[:3000], sources=sources[:10])
+
+
+def parse_serp_html(html: str, searched_query: str = "") -> ParsedSerp:
     if looks_blocked(html):
         return ParsedSerp(blocked=True)
 
     soup = BeautifulSoup(html, "lxml")
     return ParsedSerp(
         top10=_parse_organic_results(soup),
-        paa=_parse_people_also_ask(soup),
+        paa=_parse_people_also_ask(soup, searched_query),
         related_searches=_parse_related_searches(soup),
+        ai_overview=_parse_ai_overview(soup),
         blocked=False,
     )

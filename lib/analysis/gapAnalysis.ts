@@ -49,6 +49,7 @@ export async function analyzeGap(
         snippetOnlyTitles,
         paa: serp.paa,
         relatedSearches: serp.relatedSearches,
+        aiOverview: serp.aiOverview,
       })
     );
 

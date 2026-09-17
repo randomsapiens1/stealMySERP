@@ -48,6 +48,14 @@ export function toMarkdown(report: RunReport): string {
     const yourPosition = owningPage ? findRank(owningPage.pageUrl, serp.top10) : null;
     lines.push(`**Your position:** ${rankLabel(yourPosition)}\n`);
 
+    if (serp.aiOverview) {
+      lines.push(`**Google AI Overview:** ${serp.aiOverview.text}`);
+      if (serp.aiOverview.sources.length) {
+        lines.push(`_Cited: ${serp.aiOverview.sources.join(", ")}_`);
+      }
+      lines.push("");
+    }
+
     if (serp.top10.length) {
       lines.push("**Top 10:**");
       for (const r of serp.top10) {

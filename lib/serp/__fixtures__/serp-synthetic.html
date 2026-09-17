@@ -11,6 +11,17 @@
 <html lang="en">
 <body>
   <div id="search">
+    <div>
+      <div>AI Overview</div>
+      <div>
+        Beginners should prioritize cushioning, a true-to-size fit, and a moderate price point.
+        Many runners start with neutral trainers and get fitted at a specialty running store
+        before committing to a specific model. Expect to spend a break-in period of a few runs.
+        <a href="https://example-competitor-1.com/best-running-shoes">example-competitor-1.com</a>
+        <a href="https://example-competitor-3.com/top-picks">example-competitor-3.com</a>
+      </div>
+    </div>
+
     <div id="rso">
       <div class="g" data-hveid="1">
         <a href="https://example-competitor-1.com/best-running-shoes">
@@ -45,6 +56,10 @@
     </div>
 
     <div>
+      <!-- data-q also fires on the search box's own query in real Google
+           markup, not just genuine PAA questions — this entry regression-
+           tests that parsePeopleAlsoAsk filters it out. -->
+      <div data-q="best running shoes for beginners"></div>
       <div>People also ask</div>
       <div data-q="What running shoes are best for beginners?">What running shoes are best for beginners?</div>
       <div data-q="How do I know my running shoe size?">How do I know my running shoe size?</div>

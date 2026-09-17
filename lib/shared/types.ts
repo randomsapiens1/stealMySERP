@@ -47,6 +47,11 @@ export interface SerpOrganicResult {
   snippet: string;
 }
 
+export interface AiOverview {
+  text: string;
+  sources: string[];
+}
+
 export interface SerpResult {
   query: string;
   hl: string;
@@ -54,6 +59,11 @@ export interface SerpResult {
   top10: SerpOrganicResult[];
   paa: string[];
   relatedSearches: string[];
+  // Only reliably populated by the extension bridge (live rendered DOM in
+  // a real browser) — Google's AI Overview is JS-rendered and often
+  // absent from the other two sources' output. null = not present/not
+  // extracted, not necessarily "Google didn't show one."
+  aiOverview: AiOverview | null;
   blocked?: boolean;
   error?: string;
 }

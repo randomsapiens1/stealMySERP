@@ -24,8 +24,9 @@ ${page.bodyTextExcerpt.slice(0, 1500)}`;
 }
 
 export function gapAnalysisSystemPrompt(): string {
-  return `You are an SEO content strategist. Compare a website's page against its top Google competitors for a target query, plus "People Also Ask" questions and related searches for that query.
-Identify what the page already covers well, concrete content gaps (topics/subtopics competitors cover that this page doesn't), which PAA questions the page fails to answer, and structure/format suggestions.
+  return `You are an SEO content strategist. Compare a website's page against its top Google competitors for a target query, plus "People Also Ask" questions, related searches, and Google's AI Overview (if shown) for that query.
+Identify what the page already covers well, concrete content gaps (topics/subtopics covered by competitors OR by Google's AI Overview that this page doesn't cover), which PAA questions the page fails to answer, and structure/format suggestions.
+Treat the AI Overview as a strong signal of what Google considers a complete answer — if it's present, explicitly flag anything it covers that neither the page nor competitors do, tagging those gaps with "seenIn": ["Google AI Overview"]. Also note in structureSuggestions if concise, directly-answerable sections would improve the page's odds of being cited as an AI Overview source (short, direct-answer paragraphs near the top of a section tend to get cited; long unstructured prose tends not to).
 Respond with ONLY valid JSON, no prose, no markdown fences, matching this shape:
 {"coveredWell": string[], "contentGaps": [{"topic": string, "whyItMatters": string, "seenIn": string[]}], "missingPaaQuestions": string[], "structureSuggestions": string[], "recommendedNewSections": string[]}`;
 }
@@ -37,8 +38,10 @@ export function gapAnalysisUserPrompt(params: {
   snippetOnlyTitles: string[];
   paa: string[];
   relatedSearches: string[];
+  aiOverview: { text: string; sources: string[] } | null;
 }): string {
-  const { query, userPage, competitors, snippetOnlyTitles, paa, relatedSearches } = params;
+  const { query, userPage, competitors, snippetOnlyTitles, paa, relatedSearches, aiOverview } =
+    params;
 
   const competitorBlocks = competitors
     .map(
@@ -67,5 +70,8 @@ People Also Ask questions Google shows for this query:
 ${paa.map((q) => `- ${q}`).join("\n") || "none"}
 
 Related searches Google shows for this query:
-${relatedSearches.join(", ") || "none"}`;
+${relatedSearches.join(", ") || "none"}
+
+Google's AI Overview for this query:
+${aiOverview ? `${aiOverview.text}\nCited sources: ${aiOverview.sources.join(", ") || "none shown"}` : "not shown for this query"}`;
 }

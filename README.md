@@ -2,8 +2,10 @@
 
 Takes a website (English and/or Bangla), infers what each page is trying to rank
 for, checks real Google results for those queries (top 10 + People Also Ask +
-related searches), finds content gaps against competitors, and surfaces public
-contact info on competing sites for outreach — built entirely on free tools.
+related searches + AI Overview, when shown), finds content gaps against
+competitors *and* against what Google's AI Overview already covers, and
+surfaces public contact info on competing sites for outreach — built entirely
+on free tools.
 
 ## Setup
 

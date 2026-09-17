@@ -21,9 +21,10 @@ client-side in the app rather than through an API route: extension
 messaging is a browser-page capability, not something a Next.js server
 route can do). On a `SERP_SEARCH` message, it reuses one dedicated
 background tab to navigate to the query on google.com, waits for the
-page to settle, and extracts organic results / People Also Ask / related
-searches directly from the live rendered DOM — then sends that back as
-the response.
+page to settle (3s — AI Overview streams in after the rest of the page,
+so this needs more room than a plain page load), and extracts organic
+results / People Also Ask / related searches / AI Overview directly from
+the live rendered DOM — then sends that back as the response.
 
 ## Setup
 
@@ -54,3 +55,9 @@ the response.
   need updating.
 - Only works for one Chrome profile/window at a time — whichever window
   the extension is installed in and creates its bridge tab in.
+- AI Overview extraction is the least reliable field: Google doesn't show
+  one for every query, and even when it does, the heuristic (find the
+  visible "AI Overview" label, take a nearby ancestor's text) can miss it
+  if still streaming in or if Google changes the label text. Absent ≠
+  broken — `aiOverview` is just `null` and the rest of the report is
+  unaffected.
