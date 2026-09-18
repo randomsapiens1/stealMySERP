@@ -43,66 +43,61 @@ function rowToRecord(row: AnalyzedPageRow): AnalyzedPageRecord {
   };
 }
 
-export function saveRunReport(report: RunReport): number[] {
-  const db = getDb();
-  const insert = db.prepare(`
-    INSERT INTO analyzed_pages
-      (site_url, page_url, primary_topic, analyzed_at, queries_json, gap_reports_json, contacts_json)
-    VALUES (@siteUrl, @pageUrl, @primaryTopic, @analyzedAt, @queriesJson, @gapReportsJson, @contactsJson)
-  `);
-
-  const insertedIds: number[] = [];
+export async function saveRunReport(report: RunReport): Promise<number[]> {
+  const sql = await getDb();
 
   const pagesWithData = report.pageQueries.filter(
     (pq) => pq.primaryTopic || pq.queries.length > 0
   );
+  if (pagesWithData.length === 0) return [];
 
-  const runAll = db.transaction(() => {
-    for (const pq of pagesWithData) {
-      const queries: SavedQuery[] = pq.queries.map((q) => {
-        const serp = report.serpResults.find((s) => s.query === q.query);
-        return {
-          ...q,
-          verifiedRank: serp && !serp.blocked && !serp.error ? findRank(pq.pageUrl, serp.top10) : null,
-          serpBlocked: !!serp?.blocked,
-          serpError: serp?.error ?? null,
-        };
-      });
+  const inserts = pagesWithData.map((pq) => {
+    const queries: SavedQuery[] = pq.queries.map((q) => {
+      const serp = report.serpResults.find((s) => s.query === q.query);
+      return {
+        ...q,
+        verifiedRank: serp && !serp.blocked && !serp.error ? findRank(pq.pageUrl, serp.top10) : null,
+        serpBlocked: !!serp?.blocked,
+        serpError: serp?.error ?? null,
+      };
+    });
 
-      const gapReports = report.gapReports.filter((g) => g.pageUrl === pq.pageUrl);
+    const gapReports = report.gapReports.filter((g) => g.pageUrl === pq.pageUrl);
 
-      const result = insert.run({
-        siteUrl: report.siteUrl,
-        pageUrl: pq.pageUrl,
-        primaryTopic: pq.primaryTopic,
-        analyzedAt: report.createdAt,
-        queriesJson: JSON.stringify(queries),
-        gapReportsJson: JSON.stringify(gapReports),
-        contactsJson: JSON.stringify(report.contacts),
-      });
-      insertedIds.push(Number(result.lastInsertRowid));
-    }
+    return sql`
+      INSERT INTO analyzed_pages
+        (site_url, page_url, primary_topic, analyzed_at, queries_json, gap_reports_json, contacts_json)
+      VALUES (
+        ${report.siteUrl}, ${pq.pageUrl}, ${pq.primaryTopic}, ${report.createdAt},
+        ${JSON.stringify(queries)}, ${JSON.stringify(gapReports)}, ${JSON.stringify(report.contacts)}
+      )
+      RETURNING id
+    `;
   });
 
-  runAll();
-  return insertedIds;
+  // Single-round-trip transaction, mirroring the previous synchronous
+  // better-sqlite3 transaction: either every page in this run is saved, or
+  // none are.
+  const results = (await sql.transaction(inserts)) as Array<Array<{ id: number }>>;
+  return results.map((rows) => rows[0].id);
 }
 
-export function listAnalyzedPages(search?: string): AnalyzedPageRecord[] {
-  const db = getDb();
+export async function listAnalyzedPages(search?: string): Promise<AnalyzedPageRecord[]> {
+  const sql = await getDb();
   const rows = search
-    ? (db
-        .prepare(
-          `SELECT * FROM analyzed_pages
-           WHERE site_url LIKE @needle OR page_url LIKE @needle OR primary_topic LIKE @needle
-           ORDER BY analyzed_at DESC`
-        )
-        .all({ needle: `%${search}%` }) as AnalyzedPageRow[])
-    : (db.prepare(`SELECT * FROM analyzed_pages ORDER BY analyzed_at DESC`).all() as AnalyzedPageRow[]);
+    ? ((await sql`
+        SELECT * FROM analyzed_pages
+        WHERE site_url ILIKE ${`%${search}%`}
+           OR page_url ILIKE ${`%${search}%`}
+           OR primary_topic ILIKE ${`%${search}%`}
+        ORDER BY analyzed_at DESC
+      `) as AnalyzedPageRow[])
+    : ((await sql`SELECT * FROM analyzed_pages ORDER BY analyzed_at DESC`) as AnalyzedPageRow[]);
 
   return rows.map(rowToRecord);
 }
 
-export function deleteAnalyzedPage(id: number): void {
-  getDb().prepare(`DELETE FROM analyzed_pages WHERE id = ?`).run(id);
+export async function deleteAnalyzedPage(id: number): Promise<void> {
+  const sql = await getDb();
+  await sql`DELETE FROM analyzed_pages WHERE id = ${id}`;
 }

@@ -1,12 +1,5 @@
-import { beforeAll, describe, expect, it } from "vitest";
-
-process.env.STEALMYSERP_DB_PATH = ":memory:";
-
-const { saveRunReport, listAnalyzedPages, deleteAnalyzedPage } = await import(
-  "@/lib/db/history"
-);
-const { getDb } = await import("@/lib/db/client");
-
+import { describe, expect, it } from "vitest";
+import { saveRunReport, listAnalyzedPages, deleteAnalyzedPage } from "@/lib/db/history";
 import type { RunReport } from "@/lib/shared/types";
 
 function buildReport(): RunReport {
@@ -54,33 +47,39 @@ function buildReport(): RunReport {
   };
 }
 
-beforeAll(() => {
-  // Force a fresh in-memory db for this test file.
-  getDb();
-});
-
-describe("history persistence", () => {
-  it("saves a run and computes verified rank against the SERP results", () => {
-    const ids = saveRunReport(buildReport());
+// These hit the real (Neon) database configured via DATABASE_URL — skip
+// cleanly in any environment where it isn't set rather than hard-failing.
+describe.skipIf(!process.env.DATABASE_URL)("history persistence", () => {
+  it("saves a run and computes verified rank against the SERP results", async () => {
+    const ids = await saveRunReport(buildReport());
     expect(ids).toHaveLength(1);
 
-    const pages = listAnalyzedPages();
-    expect(pages).toHaveLength(1);
-    expect(pages[0].pageUrl).toBe("https://example.com/page-a");
-    expect(pages[0].primaryTopic).toBe("Example topic");
-    expect(pages[0].queries[0].verifiedRank).toBe(3);
-    expect(pages[0].gapReports[0].contentGaps[0].topic).toBe("Missing FAQ");
-    expect(pages[0].contacts[0].domain).toBe("other.com");
+    const pages = await listAnalyzedPages("Example topic");
+    const saved = pages.find((p) => p.id === ids[0]);
+    expect(saved).toBeDefined();
+    expect(saved?.pageUrl).toBe("https://example.com/page-a");
+    expect(saved?.primaryTopic).toBe("Example topic");
+    expect(saved?.queries[0].verifiedRank).toBe(3);
+    expect(saved?.gapReports[0].contentGaps[0].topic).toBe("Missing FAQ");
+    expect(saved?.contacts[0].domain).toBe("other.com");
+
+    await deleteAnalyzedPage(ids[0]);
   });
 
-  it("filters by search term across site/page/topic", () => {
-    expect(listAnalyzedPages("Example topic")).toHaveLength(1);
-    expect(listAnalyzedPages("nonexistent")).toHaveLength(0);
+  it("filters by search term across site/page/topic", async () => {
+    const ids = await saveRunReport(buildReport());
+    try {
+      expect(await listAnalyzedPages("Example topic")).toHaveLength(1);
+      expect(await listAnalyzedPages("nonexistent-search-term")).toHaveLength(0);
+    } finally {
+      await deleteAnalyzedPage(ids[0]);
+    }
   });
 
-  it("deletes a saved page", () => {
-    const [{ id }] = listAnalyzedPages();
-    deleteAnalyzedPage(id);
-    expect(listAnalyzedPages()).toHaveLength(0);
+  it("deletes a saved page", async () => {
+    const [id] = await saveRunReport(buildReport());
+    await deleteAnalyzedPage(id);
+    const pages = await listAnalyzedPages("Example topic");
+    expect(pages.find((p) => p.id === id)).toBeUndefined();
   });
 });

@@ -1,24 +1,20 @@
-import Database from "better-sqlite3";
-import fs from "node:fs";
-import path from "node:path";
+import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
-// Local-only persistence — a SQLite file on disk. Deliberately not usable
-// on a deployed serverless function (no persistent disk there); this
-// feature only makes sense for `npm run dev` on your own machine.
-const DB_PATH =
-  process.env.STEALMYSERP_DB_PATH ?? path.join(process.cwd(), "data", "stealmyserp.db");
+let sql: NeonQueryFunction<false, false> | null = null;
+let schemaReady: Promise<void> | null = null;
 
-let db: Database.Database | null = null;
+// Lazy init: `neon()` throws immediately if DATABASE_URL is unset, and
+// Next.js evaluates top-level module code at build time — calling this
+// eagerly would crash `next build` before env vars are configured.
+function getSql(): NeonQueryFunction<false, false> {
+  if (!sql) sql = neon(process.env.DATABASE_URL!);
+  return sql;
+}
 
-export function getDb(): Database.Database {
-  if (db) return db;
-
-  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-  db = new Database(DB_PATH);
-  db.pragma("journal_mode = WAL");
-  db.exec(`
+async function ensureSchema(db: NeonQueryFunction<false, false>): Promise<void> {
+  await db`
     CREATE TABLE IF NOT EXISTS analyzed_pages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       site_url TEXT NOT NULL,
       page_url TEXT NOT NULL,
       primary_topic TEXT NOT NULL DEFAULT '',
@@ -26,10 +22,15 @@ export function getDb(): Database.Database {
       queries_json TEXT NOT NULL,
       gap_reports_json TEXT NOT NULL,
       contacts_json TEXT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_analyzed_pages_site_url ON analyzed_pages(site_url);
-    CREATE INDEX IF NOT EXISTS idx_analyzed_pages_analyzed_at ON analyzed_pages(analyzed_at);
-  `);
+    )
+  `;
+  await db`CREATE INDEX IF NOT EXISTS idx_analyzed_pages_site_url ON analyzed_pages(site_url)`;
+  await db`CREATE INDEX IF NOT EXISTS idx_analyzed_pages_analyzed_at ON analyzed_pages(analyzed_at)`;
+}
 
+export async function getDb(): Promise<NeonQueryFunction<false, false>> {
+  const db = getSql();
+  if (!schemaReady) schemaReady = ensureSchema(db);
+  await schemaReady;
   return db;
 }

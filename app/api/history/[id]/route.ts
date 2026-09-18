@@ -12,7 +12,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   }
 
   try {
-    deleteAnalyzedPage(numericId);
+    await deleteAnalyzedPage(numericId);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json(

@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const ids = saveRunReport(report);
+    const ids = await saveRunReport(report);
     return NextResponse.json({ savedIds: ids });
   } catch (err) {
     return NextResponse.json(

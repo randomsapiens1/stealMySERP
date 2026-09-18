@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
   const search = req.nextUrl.searchParams.get("search") ?? undefined;
 
   try {
-    const pages = listAnalyzedPages(search);
+    const pages = await listAnalyzedPages(search);
     return NextResponse.json({ pages });
   } catch (err) {
     return NextResponse.json(
