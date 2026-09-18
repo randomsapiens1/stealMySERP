@@ -9,7 +9,6 @@ export default function Home() {
   const router = useRouter();
   const [siteUrl, setSiteUrl] = useState("");
   const [maxPages, setMaxPages] = useState(8);
-  const [maxQueries, setMaxQueries] = useState(3);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -17,7 +16,6 @@ export default function Home() {
     const params = new URLSearchParams({
       url: siteUrl.trim(),
       maxPages: String(maxPages),
-      maxQueries: String(maxQueries),
     });
     router.push(`/analyze?${params.toString()}`);
   }
@@ -25,7 +23,13 @@ export default function Home() {
   return (
     <main className="flex-1 flex items-center justify-center px-4 py-16">
       <div className="w-full max-w-xl">
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-end gap-2 mb-4">
+          <Link
+            href="/extension"
+            className="rounded-md border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-900"
+          >
+            Get the extension
+          </Link>
           <Link
             href="/history"
             className="rounded-md border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-900"
@@ -60,35 +64,19 @@ export default function Home() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="maxPages" className="block text-sm font-medium mb-1">
-                Max pages to crawl: {maxPages}
-              </label>
-              <input
-                id="maxPages"
-                type="range"
-                min={1}
-                max={15}
-                value={maxPages}
-                onChange={(e) => setMaxPages(Number(e.target.value))}
-                className="w-full"
-              />
-            </div>
-            <div>
-              <label htmlFor="maxQueries" className="block text-sm font-medium mb-1">
-                Max target queries: {maxQueries}
-              </label>
-              <input
-                id="maxQueries"
-                type="range"
-                min={1}
-                max={5}
-                value={maxQueries}
-                onChange={(e) => setMaxQueries(Number(e.target.value))}
-                className="w-full"
-              />
-            </div>
+          <div>
+            <label htmlFor="maxPages" className="block text-sm font-medium mb-1">
+              Max pages to crawl: {maxPages}
+            </label>
+            <input
+              id="maxPages"
+              type="range"
+              min={1}
+              max={15}
+              value={maxPages}
+              onChange={(e) => setMaxPages(Number(e.target.value))}
+              className="w-full"
+            />
           </div>
 
           <button
