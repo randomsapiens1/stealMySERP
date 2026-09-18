@@ -14,7 +14,11 @@ export function ContentOpportunities({ report }: { report: RunReport }) {
               className="border border-gray-200 dark:border-gray-800 rounded-md p-4"
             >
               <div className="text-sm font-medium mb-1">&quot;{gap.query}&quot;</div>
-              <div className="text-xs text-gray-500 mb-3 break-all">{gap.pageUrl}</div>
+              <div className="text-xs text-gray-500 mb-3 break-all">
+                <a href={gap.pageUrl} target="_blank" rel="noreferrer" className="hover:underline">
+                  {gap.pageUrl}
+                </a>
+              </div>
               {gap.error ? (
                 <p className="text-sm text-red-500">{gap.error}</p>
               ) : (

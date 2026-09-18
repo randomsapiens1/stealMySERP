@@ -54,7 +54,20 @@ export function SearchLandscape({ report }: { report: RunReport }) {
                         </p>
                         {serp.aiOverview.sources.length > 0 && (
                           <p className="text-xs text-gray-500 mt-2 break-all">
-                            Cited: {serp.aiOverview.sources.join(", ")}
+                            Cited:{" "}
+                            {serp.aiOverview.sources.map((url, i) => (
+                              <span key={url}>
+                                {i > 0 && ", "}
+                                <a
+                                  href={url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="hover:underline"
+                                >
+                                  {url}
+                                </a>
+                              </span>
+                            ))}
                           </p>
                         )}
                       </div>
@@ -72,7 +85,17 @@ export function SearchLandscape({ report }: { report: RunReport }) {
                                 <span className={isOwn ? "font-semibold" : ""}>
                                   {label}
                                 </span>{" "}
-                                <span className="text-gray-500">— {r.title}</span>
+                                <span className="text-gray-500">
+                                  —{" "}
+                                  <a
+                                    href={r.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="hover:underline"
+                                  >
+                                    {r.title}
+                                  </a>
+                                </span>
                               </li>
                             );
                           })}

@@ -1,3 +1,4 @@
+import { domainOf } from "@/lib/shared/chunk";
 import type { RunReport } from "@/lib/shared/types";
 import { Section } from "./Section";
 
@@ -21,10 +22,59 @@ export function OutreachOpportunities({ report }: { report: RunReport }) {
             <tbody>
               {report.contacts.map((c) => (
                 <tr key={c.domain} className="border-b border-gray-100 dark:border-gray-900">
-                  <td className="py-2 pr-4">{c.domain}</td>
-                  <td className="py-2 pr-4">{c.emails.join(", ") || "—"}</td>
-                  <td className="py-2 pr-4 break-all">{c.contactPageUrl ?? "—"}</td>
-                  <td className="py-2 pr-4">{c.socialLinks.length || "—"}</td>
+                  <td className="py-2 pr-4">
+                    <a
+                      href={`https://${c.domain}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="hover:underline"
+                    >
+                      {c.domain}
+                    </a>
+                  </td>
+                  <td className="py-2 pr-4">
+                    {c.emails.length > 0
+                      ? c.emails.map((email, i) => (
+                          <span key={email}>
+                            {i > 0 && ", "}
+                            <a href={`mailto:${email}`} className="hover:underline">
+                              {email}
+                            </a>
+                          </span>
+                        ))
+                      : "—"}
+                  </td>
+                  <td className="py-2 pr-4 break-all">
+                    {c.contactPageUrl ? (
+                      <a
+                        href={c.contactPageUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="hover:underline"
+                      >
+                        {c.contactPageUrl}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="py-2 pr-4">
+                    {c.socialLinks.length > 0
+                      ? c.socialLinks.map((url, i) => (
+                          <span key={url}>
+                            {i > 0 && ", "}
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="hover:underline"
+                            >
+                              {domainOf(url) ?? url}
+                            </a>
+                          </span>
+                        ))
+                      : "—"}
+                  </td>
                   <td className="py-2 pr-4">{c.confidence}</td>
                 </tr>
               ))}

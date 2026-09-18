@@ -35,7 +35,14 @@ export function PageUnderstanding({ report }: { report: RunReport }) {
               className="border border-gray-200 dark:border-gray-800 rounded-md p-4"
             >
               <div className="text-sm font-mono text-gray-500 mb-1 break-all">
-                {pathOf(pq.pageUrl)}
+                <a
+                  href={pq.pageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:underline"
+                >
+                  {pathOf(pq.pageUrl)}
+                </a>
               </div>
               <div className="text-sm mb-3">
                 <span className="font-medium">Primary topic:</span>{" "}
