@@ -1,0 +1,195 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import type { AnalyzedPageRecord, SavedQuery } from "@/lib/db/history";
+import type { GapReport } from "@/lib/shared/types";
+import {
+  groupBySite,
+  latestRecordsByPage,
+  pageKey,
+  pagePathLabel,
+  rankTierClasses,
+  runHeaderLabel,
+  siteLabel,
+} from "@/lib/history/metrics";
+import { ExternalLinkIcon, FileIcon, GapIcon, GlobeIcon, MailIcon } from "./icons";
+import { StatCard } from "./StatCard";
+
+function QueryRankBadge({ query }: { query: SavedQuery }) {
+  if (query.serpBlocked || query.serpError) {
+    return (
+      <span
+        className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-400 dark:bg-gray-800 dark:text-gray-500"
+        title="Google search was blocked or errored for this query"
+      >
+        n/a
+      </span>
+    );
+  }
+  if (query.verifiedRank === null) {
+    return <span className="text-xs text-gray-400 dark:text-gray-600">Not ranking</span>;
+  }
+  return (
+    <span
+      className={`inline-flex min-w-[2.25rem] justify-center rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${rankTierClasses(query.verifiedRank)}`}
+    >
+      #{query.verifiedRank}
+    </span>
+  );
+}
+
+function QueryRow({ query, gap }: { query: SavedQuery; gap: GapReport | undefined }) {
+  return (
+    <div className="py-3 border-b border-gray-100 dark:border-gray-900 last:border-0">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 text-sm">
+          <span>{query.query}</span>
+          <span className="ml-2 text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+            {Math.round(query.confidence * 100)}% conf.
+          </span>
+        </div>
+        <QueryRankBadge query={query} />
+      </div>
+
+      {gap?.error && <p className="mt-1.5 text-xs text-red-500">{gap.error}</p>}
+      {gap && !gap.error && gap.contentGaps.length > 0 && (
+        <ul className="mt-1.5 ml-4 list-disc space-y-0.5 text-xs text-gray-600 dark:text-gray-400">
+          {gap.contentGaps.map((g, i) => (
+            <li key={i}>
+              <span className="font-medium text-gray-700 dark:text-gray-300">{g.topic}</span> — {g.whyItMatters}
+            </li>
+          ))}
+        </ul>
+      )}
+      {gap && !gap.error && gap.contentGaps.length === 0 && (
+        <p className="mt-1.5 text-xs text-emerald-600 dark:text-emerald-400">No content gaps found</p>
+      )}
+    </div>
+  );
+}
+
+function PageBlock({
+  record,
+  onDelete,
+}: {
+  record: AnalyzedPageRecord;
+  onDelete: (id: number) => void;
+}) {
+  const header = runHeaderLabel(record.analyzedAt);
+
+  return (
+    <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+        <a
+          href={record.pageUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 font-medium truncate hover:underline"
+        >
+          {pagePathLabel(pageKey(record.pageUrl))}
+          <ExternalLinkIcon className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+        </a>
+        <div className="flex items-center gap-3 shrink-0 text-xs text-gray-500 dark:text-gray-400">
+          <span>
+            analyzed {header.date}, {header.time}
+          </span>
+          <button onClick={() => onDelete(record.id)} className="text-red-500 hover:underline">
+            Delete
+          </button>
+        </div>
+      </div>
+
+      <div className="px-4">
+        {record.queries.length === 0 ? (
+          <p className="py-3 text-xs text-gray-400 dark:text-gray-600">No queries inferred for this page.</p>
+        ) : (
+          record.queries.map((q) => (
+            <QueryRow
+              key={q.query}
+              query={q}
+              gap={record.gapReports.find((g) => g.query === q.query)}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function SiteHistoryView({ site }: { site: string }) {
+  const [records, setRecords] = useState<AnalyzedPageRecord[] | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const res = await fetch(`/api/history/list?search=${encodeURIComponent(site)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error ?? "Failed to load history");
+        // The search endpoint matches substrings across site/page/topic, so
+        // narrow to an exact hostname match before rendering.
+        const filtered = (data.pages as AnalyzedPageRecord[]).filter(
+          (r) => siteLabel(r.siteUrl) === site
+        );
+        if (!cancelled) setRecords(filtered);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load history");
+      }
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [site]);
+
+  const pages = useMemo(() => latestRecordsByPage(records ?? []), [records]);
+  const stats = useMemo(() => groupBySite(records ?? [])[0], [records]);
+
+  async function handleDelete(id: number) {
+    await fetch(`/api/history/${id}`, { method: "DELETE" });
+    setRecords((prev) => (prev ? prev.filter((r) => r.id !== id) : prev));
+  }
+
+  if (error) return <p className="text-sm text-red-500">{error}</p>;
+  if (records === null) return <p className="text-sm text-gray-500">Loading...</p>;
+  if (records.length === 0 || !stats) {
+    return <p className="text-sm text-gray-500">No history found for {site}.</p>;
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-semibold uppercase">
+          {site.charAt(0)}
+        </div>
+        <div>
+          <h1 className="text-xl font-semibold">{site}</h1>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {stats.pageCount} page{stats.pageCount === 1 ? "" : "s"} · {stats.auditCount} audit
+            {stats.auditCount === 1 ? "" : "s"}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <StatCard
+          icon={<GlobeIcon />}
+          label="Best rank"
+          value={stats.bestRank === null ? "—" : `#${stats.bestRank}`}
+        />
+        <StatCard icon={<FileIcon />} label="Pages tracked" value={stats.pageCount} />
+        <StatCard icon={<GapIcon />} label="Content gaps" value={stats.gapCount} />
+        <StatCard icon={<MailIcon />} label="Contacts found" value={stats.contactCount} />
+      </div>
+
+      <div className="space-y-4">
+        {pages.map((record) => (
+          <PageBlock key={pageKey(record.pageUrl)} record={record} onDelete={(id) => void handleDelete(id)} />
+        ))}
+      </div>
+    </div>
+  );
+}

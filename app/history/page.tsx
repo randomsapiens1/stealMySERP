@@ -13,9 +13,8 @@ export default function HistoryPage() {
           <div>
             <h1 className="text-xl font-semibold">History</h1>
             <p className="text-sm text-gray-500 mt-1">
-              Every page you&apos;ve analyzed, saved locally (SQLite, this machine only). Sites
-              are grouped below; each column is one analysis run — click a rank to see its
-              detail.
+              Every page you&apos;ve analyzed, saved to your database. Click a website to see its
+              full run history.
             </p>
           </div>
           <Link
