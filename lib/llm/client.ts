@@ -2,11 +2,16 @@ import OpenAI from "openai";
 import PQueue from "p-queue";
 
 // OpenRouter's free-model catalog churns — DeepSeek's free slugs were
-// discontinued after this app was first built. Verified working + free +
-// good Bangla comprehension as of this writing; check openrouter.ai/models
-// (filter for ":free") if these start 404ing again.
-const PRIMARY_MODEL = "nvidia/nemotron-3-super-120b-a12b:free";
-const FALLBACK_MODEL = "nex-agi/nex-n2.5-pro:free";
+// discontinued after this app was first built (still gone as of this
+// writing; only paid DeepSeek slugs exist on OpenRouter now). Tried in
+// order until one succeeds. Verified working + free as of this writing;
+// check openrouter.ai/models (filter for ":free") if these start 404ing.
+const MODELS = [
+  "nvidia/nemotron-3-super-120b-a12b:free",
+  "nex-agi/nex-n2.5-pro:free",
+  "google/gemma-4-31b-it:free",
+  "z-ai/glm-5.2:free",
+];
 // Without a bound, a single hung request can occupy the queue's only
 // concurrency slot forever, since PQueue won't advance to the next job
 // until the current one settles — silently freezing every future LLM
@@ -76,10 +81,9 @@ export async function completeJson<T>(
   }
 
   return queue.add(async () => {
-    const models = [PRIMARY_MODEL, FALLBACK_MODEL];
     let lastError: unknown;
 
-    for (const model of models) {
+    for (const model of MODELS) {
       for (let attempt = 0; attempt <= 2; attempt++) {
         try {
           const raw = await callModel(model, systemPrompt, userPrompt);
