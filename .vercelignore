@@ -4,5 +4,5 @@
 # they don't need to be part of the deployment upload. crawler-service in
 # particular can carry a multi-hundred-MB .venv and browser profile cache
 # locally, which blows past Vercel's upload limits.
-crawler-service/
-extension/
+/crawler-service/
+/extension/
