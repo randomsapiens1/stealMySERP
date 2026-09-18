@@ -10,14 +10,19 @@ on free tools.
 ## Setup
 
 1. Create a free [OpenRouter](https://openrouter.ai/keys) account and API key.
-2. Copy `.env.local.example` to `.env.local` and set `OPENROUTER_API_KEY`.
-3. `npm install`
-4. `npm run dev` and open [http://localhost:3000](http://localhost:3000).
+2. Provision a Postgres database (a free [Neon](https://neon.tech) project
+   works well — this repo is set up for it via the Vercel Marketplace, but any
+   Postgres works) and set `DATABASE_URL`.
+3. Copy `.env.local.example` to `.env.local` and set `OPENROUTER_API_KEY`.
+4. `npm install`
+5. `npm run dev` and open [http://localhost:3000](http://localhost:3000).
 
 ## Deploying (Vercel free/Hobby tier)
 
-Set `OPENROUTER_API_KEY` in Vercel Project Settings → Environment Variables,
-then deploy as normal. No other services or paid add-ons are required.
+Set `OPENROUTER_API_KEY` in Vercel Project Settings → Environment Variables.
+`DATABASE_URL` (and friends) are set automatically if you provision Postgres
+via the Vercel Marketplace (`vercel integration add neon`) — otherwise set it
+manually. No other services or paid add-ons are required.
 
 ## Getting past Google blocking (local personal use)
 
@@ -64,28 +69,27 @@ function timeout, and accumulates the results in memory. Export the finished
 report as Markdown or CSV from the UI. When a run finishes, every analyzed
 page is also saved to a local history dashboard (see below).
 
-## History dashboard (local only)
+## History dashboard
 
-Every analyzed page is automatically saved to a local SQLite database
-(`data/stealmyserp.db`, gitignored) — visit `/history` to browse everything
-you've ever checked, search by site/page/topic, expand a row for full detail
-(queries, rankings, content gaps, contacts), delete entries, or export the
-visible rows to CSV. This is local-machine-only: a deployed serverless
-function has no persistent disk, so this feature only works with
-`npm run dev`. See `lib/db/` for the schema and `app/api/history/*` for the
-routes.
+Every analyzed page is automatically saved to Postgres (via `DATABASE_URL`)
+— visit `/history` to browse every site you've checked (grouped as a
+"Monitored Websites" table), drill into a site to see each page's queries and
+content gaps, delete entries, or export the visible rows to CSV. Because it's
+a real hosted database rather than a local SQLite file, this works the same
+way on a Vercel deployment as it does with `npm run dev`. See `lib/db/` for
+the schema and `app/api/history/*` for the routes.
 
 ## Known limitations
 
 - **Google scraping is unofficial** (against Google's ToS) and can be blocked
-  or rate-limited at any time. The Chrome extension bridge (above) sidesteps
-  this reliably in testing; the built-in `direct-fetch` scraper does not.
+  or rate-limited at any time. The Chrome extension bridge and Playwright
+  bridge (above) sidestep this reliably in testing but only run locally; a
+  Vercel deployment falls back to the built-in `direct-fetch` scraper, which
+  gets blocked more easily.
 - **Free LLM rate limits** (OpenRouter's free models) mean a run is
   deliberately paced and can take 1–3 minutes. OpenRouter's free-model catalog
   changes over time — see `lib/llm/client.ts` for the current picks and how
   to swap them if a model gets discontinued or rate-limited.
-- **History is local-only** — it won't work (or persist) on a Vercel
-  deployment; see above.
 
 ## Tests
 
@@ -96,4 +100,4 @@ npm test
 Covers the Google SERP HTML parser (synthetic fixture + a real captured
 block/interstitial page), the crawler/SERP-source registries, contact-email
 extraction (including a regression for library-version false positives), and
-history persistence (save/search/delete against an in-memory SQLite db).
+history persistence (save/search/delete against `DATABASE_URL`; skipped if unset).
