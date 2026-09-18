@@ -5,7 +5,7 @@ function headingsToOutline(page: PageContent): string {
 }
 
 export function inferQueriesSystemPrompt(): string {
-  return `You are an SEO analyst. Given a web page's content, identify its primary topic in plain English (a short human-readable label, not a search query), and infer up to 3 search queries this page is realistically trying to rank for on Google.
+  return `You are an SEO analyst. Given a web page's content, identify its primary topic in plain English (a short human-readable label, not a search query), and infer up to 8 distinct search queries this page is realistically trying to rank for on Google, ordered roughly by how confident you are the page targets each one.
 If the page is in Bangla, infer queries in Bangla as a real Bangla searcher would type them, not translated English queries.
 Respond with ONLY valid JSON, no prose, no markdown fences, matching this shape:
 {"primaryTopic": string, "queries": [{"query": string, "intent": "informational"|"transactional"|"navigational"|"commercial", "confidence": number between 0 and 1, "languageOfQuery": "bn"|"en"}]}`;

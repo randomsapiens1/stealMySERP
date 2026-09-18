@@ -22,7 +22,7 @@ export async function inferQueriesForPage(
     return {
       pageUrl: page.url,
       primaryTopic: result.primaryTopic ?? "",
-      queries: (result.queries ?? []).slice(0, 3),
+      queries: (result.queries ?? []).slice(0, 8),
     };
   } catch {
     return { pageUrl: page.url, primaryTopic: "", queries: [] };

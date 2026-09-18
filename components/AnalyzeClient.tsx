@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { ExportButtons } from "@/components/ExportButtons";
 import { Logo } from "@/components/Logo";
 import { ProgressStepper, type LogEntry } from "@/components/ProgressStepper";
+import { QuerySelector } from "@/components/QuerySelector";
 import { ReportView } from "@/components/ReportView";
 import { fetchSerpViaExtension } from "@/lib/orchestrator/extensionSerp";
 import { postJson } from "@/lib/orchestrator/postJson";
@@ -27,17 +28,26 @@ const SERP_DELAY_MS = 2500;
 const LLM_DELAY_MS = 1500;
 const MAX_CONTACT_DOMAINS = 15;
 
+interface SelectedQuery {
+  pageUrl: string;
+  query: string;
+  languageOfQuery: Lang;
+}
+
 export function AnalyzeClient() {
   const searchParams = useSearchParams();
   const siteUrl = searchParams.get("url") ?? "";
   const maxPages = Number(searchParams.get("maxPages") ?? 8);
-  const maxQueries = Number(searchParams.get("maxQueries") ?? 3);
 
   const [log, setLog] = useState<LogEntry[]>([]);
   const [report, setReport] = useState<RunReport | null>(null);
-  const [status, setStatus] = useState<"running" | "done" | "fatal">("running");
+  const [status, setStatus] = useState<
+    "running" | "selecting" | "analyzing" | "done" | "fatal"
+  >("running");
   const [fatalMessage, setFatalMessage] = useState("");
   const started = useRef(false);
+  const runReportRef = useRef<RunReport | null>(null);
+  const okPagesRef = useRef<PageContent[]>([]);
 
   function addLog(stage: string, message: string, status: LogEntry["status"]) {
     const id = crypto.randomUUID();
@@ -47,9 +57,9 @@ export function AnalyzeClient() {
   useEffect(() => {
     if (started.current || !siteUrl) return;
     started.current = true;
-    void run();
+    void discoverAndInferQueries();
 
-    async function run() {
+    async function discoverAndInferQueries() {
       const runReport: RunReport = {
         siteUrl,
         createdAt: new Date().toISOString(),
@@ -59,6 +69,7 @@ export function AnalyzeClient() {
         gapReports: [],
         contacts: [],
       };
+      runReportRef.current = runReport;
 
       try {
         addLog("discover", "Finding pages to analyze...", "pending");
@@ -75,7 +86,7 @@ export function AnalyzeClient() {
         addLog(
           "discover",
           `Found ${discover.pages.length} page${discover.pages.length === 1 ? "" : "s"} (${modeLabel})`,
-          "success"
+          "success",
         );
 
         addLog("extract", "Reading page content...", "pending");
@@ -83,186 +94,215 @@ export function AnalyzeClient() {
         for (const group of chunk(discover.pages, EXTRACT_CHUNK_SIZE)) {
           const res = await postJson<{ extracted: PageContent[] }>(
             "/api/analyze/extract",
-            { urls: group }
+            { urls: group },
           );
           pages.push(...res.extracted);
         }
         const okPages = pages.filter((p) => !p.error);
+        okPagesRef.current = okPages;
         runReport.pages = pages;
         setReport({ ...runReport });
         addLog(
           "extract",
           `Extracted ${okPages.length}/${pages.length} pages successfully`,
-          okPages.length > 0 ? "success" : "error"
+          okPages.length > 0 ? "success" : "error",
         );
 
         if (okPages.length === 0) {
           throw new Error("Could not read any pages from this site.");
         }
 
-        addLog("queries", "Inferring target queries with the LLM...", "pending");
+        addLog(
+          "queries",
+          "Inferring target queries with the LLM...",
+          "pending",
+        );
         const pageQueries: PageQueries[] = [];
         for (const group of chunk(okPages, QUERIES_CHUNK_SIZE)) {
           const res = await postJson<{ pageQueries: PageQueries[] }>(
             "/api/analyze/queries",
-            { pages: group }
+            { pages: group },
           );
           pageQueries.push(...res.pageQueries);
           await delay(LLM_DELAY_MS);
         }
         runReport.pageQueries = pageQueries;
         setReport({ ...runReport });
-        addLog(
-          "queries",
-          `Inferred queries for ${pageQueries.filter((q) => q.queries.length > 0).length}/${okPages.length} pages`,
-          "success"
+
+        const totalQueries = pageQueries.reduce(
+          (n, pq) => n + pq.queries.length,
+          0,
         );
-
-        interface SelectedQuery {
-          pageUrl: string;
-          query: string;
-          languageOfQuery: Lang;
-        }
-        const seen = new Set<string>();
-        const selected: SelectedQuery[] = pageQueries
-          .flatMap((pq) =>
-            pq.queries.map((q) => ({
-              pageUrl: pq.pageUrl,
-              query: q.query,
-              languageOfQuery: q.languageOfQuery,
-              confidence: q.confidence,
-            }))
-          )
-          .sort((a, b) => b.confidence - a.confidence)
-          .filter((q) => {
-            const key = q.query.toLowerCase().trim();
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          })
-          .slice(0, maxQueries);
-
-        if (selected.length === 0) {
-          addLog("queries", "No target queries to analyze further.", "error");
-          setReport({ ...runReport });
+        if (totalQueries === 0) {
+          addLog(
+            "queries",
+            "No target queries could be inferred for any page.",
+            "error",
+          );
           setStatus("done");
           return;
         }
 
-        const useExtensionBridge = process.env.NEXT_PUBLIC_SERP_SOURCE === "extension";
         addLog(
-          "serp",
-          useExtensionBridge
-            ? "Fetching Google results via the browser extension bridge..."
-            : "Fetching Google results (top 10 + PAA + related)...",
-          "pending"
+          "queries",
+          `Inferred ${totalQueries} candidate queries across ${pageQueries.filter((q) => q.queries.length > 0).length}/${okPages.length} pages — choose which to analyze below.`,
+          "success",
         );
-        const serpResults: SerpResult[] = [];
-        for (const sel of selected) {
-          const serp = useExtensionBridge
-            ? await fetchSerpViaExtension(sel.query, sel.languageOfQuery)
-            : await postJson<SerpResult>("/api/analyze/serp", {
-                query: sel.query,
-                lang: sel.languageOfQuery,
-              });
-          serpResults.push(serp);
-          addLog(
-            "serp",
-            serp.error || serp.blocked
-              ? `"${sel.query}" — ${serp.error ?? "blocked"}`
-              : `"${sel.query}" — ${serp.top10.length} results, ${serp.paa.length} PAA, ${serp.relatedSearches.length} related`,
-            serp.error || serp.blocked ? "error" : "success"
-          );
-          await delay(SERP_DELAY_MS);
-        }
-        runReport.serpResults = serpResults;
-        setReport({ ...runReport });
-
-        addLog("competitors", "Fetching competitor pages...", "pending");
-        const competitorsByQuery = new Map<string, PageContent[]>();
-        for (const serp of serpResults) {
-          const urls = serp.top10.slice(0, 5).map((r) => r.url);
-          if (urls.length === 0) {
-            competitorsByQuery.set(serp.query, []);
-            continue;
-          }
-          const res = await postJson<{ competitorPages: PageContent[] }>(
-            "/api/analyze/competitors",
-            { urls }
-          );
-          competitorsByQuery.set(serp.query, res.competitorPages);
-          await delay(500);
-        }
-        addLog("competitors", "Competitor pages fetched.", "success");
-
-        addLog("gaps", "Running content gap analysis...", "pending");
-        const gapReports: GapReport[] = [];
-        for (const sel of selected) {
-          const serp = serpResults.find((s) => s.query === sel.query);
-          const userPage = okPages.find((p) => p.url === sel.pageUrl);
-          if (!serp || !userPage) continue;
-          const res = await postJson<{ gapReport: GapReport }>("/api/analyze/gaps", {
-            userPage,
-            serp,
-            competitors: competitorsByQuery.get(serp.query) ?? [],
-          });
-          gapReports.push(res.gapReport);
-          addLog(
-            "gaps",
-            res.gapReport.error
-              ? `"${sel.query}" — ${res.gapReport.error}`
-              : `"${sel.query}" — analysis complete`,
-            res.gapReport.error ? "error" : "success"
-          );
-          await delay(LLM_DELAY_MS);
-        }
-        runReport.gapReports = gapReports;
-        setReport({ ...runReport });
-
-        addLog("contacts", "Finding public contact info on competing sites...", "pending");
-        const ownDomain = domainOf(siteUrl);
-        const domainSet = new Set<string>();
-        for (const serp of serpResults) {
-          for (const r of serp.top10) {
-            const d = domainOf(r.url);
-            if (d && d !== ownDomain) domainSet.add(d);
-          }
-        }
-        const domains = Array.from(domainSet).slice(0, MAX_CONTACT_DOMAINS);
-        const contacts: ContactInfo[] = [];
-        for (const group of chunk(domains, CONTACTS_CHUNK_SIZE)) {
-          const res = await postJson<{ contacts: ContactInfo[] }>(
-            "/api/analyze/contacts",
-            { domains: group }
-          );
-          contacts.push(...res.contacts);
-        }
-        runReport.contacts = contacts;
-        setReport({ ...runReport });
-        addLog(
-          "contacts",
-          `Found contact info for ${contacts.filter((c) => c.emails.length > 0 || c.socialLinks.length > 0).length}/${domains.length || 0} domains`,
-          "success"
-        );
-
-        try {
-          await postJson("/api/history/save", runReport);
-          addLog("history", "Saved to history dashboard.", "success");
-        } catch (err) {
-          addLog(
-            "history",
-            `Couldn't save to history: ${err instanceof Error ? err.message : "unknown error"}`,
-            "error"
-          );
-        }
-
-        setStatus("done");
+        setStatus("selecting");
       } catch (err) {
         setFatalMessage(err instanceof Error ? err.message : "Analysis failed");
         setStatus("fatal");
       }
     }
-  }, [siteUrl, maxPages, maxQueries]);
+  }, [siteUrl, maxPages]);
+
+  async function analyzeSelectedQueries(
+    picked: { pageUrl: string; query: string }[],
+  ) {
+    const runReport = runReportRef.current;
+    const okPages = okPagesRef.current;
+    if (!runReport) return;
+
+    setStatus("analyzing");
+
+    try {
+      const selected: SelectedQuery[] = picked
+        .map(({ pageUrl, query }) => {
+          const pq = runReport.pageQueries.find((p) => p.pageUrl === pageUrl);
+          const match = pq?.queries.find((iq) => iq.query === query);
+          return match
+            ? { pageUrl, query, languageOfQuery: match.languageOfQuery }
+            : null;
+        })
+        .filter((q): q is SelectedQuery => q !== null);
+
+      addLog(
+        "queries",
+        `Analyzing ${selected.length} selected ${selected.length === 1 ? "query" : "queries"}...`,
+        "success",
+      );
+
+      const useExtensionBridge =
+        process.env.NEXT_PUBLIC_SERP_SOURCE === "extension";
+      addLog(
+        "serp",
+        useExtensionBridge
+          ? "Fetching Google results via the browser extension bridge..."
+          : "Fetching Google results (top 10 + PAA + related)...",
+        "pending",
+      );
+      const serpResults: SerpResult[] = [];
+      for (const sel of selected) {
+        const serp = useExtensionBridge
+          ? await fetchSerpViaExtension(sel.query, sel.languageOfQuery)
+          : await postJson<SerpResult>("/api/analyze/serp", {
+              query: sel.query,
+              lang: sel.languageOfQuery,
+            });
+        serpResults.push(serp);
+        addLog(
+          "serp",
+          serp.error || serp.blocked
+            ? `"${sel.query}" — ${serp.error ?? "blocked"}`
+            : `"${sel.query}" — ${serp.top10.length} results, ${serp.paa.length} PAA, ${serp.relatedSearches.length} related`,
+          serp.error || serp.blocked ? "error" : "success",
+        );
+        await delay(SERP_DELAY_MS);
+      }
+      runReport.serpResults = serpResults;
+      setReport({ ...runReport });
+
+      addLog("competitors", "Fetching competitor pages...", "pending");
+      const competitorsByQuery = new Map<string, PageContent[]>();
+      for (const serp of serpResults) {
+        const urls = serp.top10.slice(0, 5).map((r) => r.url);
+        if (urls.length === 0) {
+          competitorsByQuery.set(serp.query, []);
+          continue;
+        }
+        const res = await postJson<{ competitorPages: PageContent[] }>(
+          "/api/analyze/competitors",
+          { urls },
+        );
+        competitorsByQuery.set(serp.query, res.competitorPages);
+        await delay(500);
+      }
+      addLog("competitors", "Competitor pages fetched.", "success");
+
+      addLog("gaps", "Running content gap analysis...", "pending");
+      const gapReports: GapReport[] = [];
+      for (const sel of selected) {
+        const serp = serpResults.find((s) => s.query === sel.query);
+        const userPage = okPages.find((p) => p.url === sel.pageUrl);
+        if (!serp || !userPage) continue;
+        const res = await postJson<{ gapReport: GapReport }>(
+          "/api/analyze/gaps",
+          {
+            userPage,
+            serp,
+            competitors: competitorsByQuery.get(serp.query) ?? [],
+          },
+        );
+        gapReports.push(res.gapReport);
+        addLog(
+          "gaps",
+          res.gapReport.error
+            ? `"${sel.query}" — ${res.gapReport.error}`
+            : `"${sel.query}" — analysis complete`,
+          res.gapReport.error ? "error" : "success",
+        );
+        await delay(LLM_DELAY_MS);
+      }
+      runReport.gapReports = gapReports;
+      setReport({ ...runReport });
+
+      addLog(
+        "contacts",
+        "Finding public contact info on competing sites...",
+        "pending",
+      );
+      const ownDomain = domainOf(siteUrl);
+      const domainSet = new Set<string>();
+      for (const serp of serpResults) {
+        for (const r of serp.top10) {
+          const d = domainOf(r.url);
+          if (d && d !== ownDomain) domainSet.add(d);
+        }
+      }
+      const domains = Array.from(domainSet).slice(0, MAX_CONTACT_DOMAINS);
+      const contacts: ContactInfo[] = [];
+      for (const group of chunk(domains, CONTACTS_CHUNK_SIZE)) {
+        const res = await postJson<{ contacts: ContactInfo[] }>(
+          "/api/analyze/contacts",
+          { domains: group },
+        );
+        contacts.push(...res.contacts);
+      }
+      runReport.contacts = contacts;
+      setReport({ ...runReport });
+      addLog(
+        "contacts",
+        `Found contact info for ${contacts.filter((c) => c.emails.length > 0 || c.socialLinks.length > 0).length}/${domains.length || 0} domains`,
+        "success",
+      );
+
+      try {
+        await postJson("/api/history/save", runReport);
+        addLog("history", "Saved to history dashboard.", "success");
+      } catch (err) {
+        addLog(
+          "history",
+          `Couldn't save to history: ${err instanceof Error ? err.message : "unknown error"}`,
+          "error",
+        );
+      }
+
+      setStatus("done");
+    } catch (err) {
+      setFatalMessage(err instanceof Error ? err.message : "Analysis failed");
+      setStatus("fatal");
+    }
+  }
 
   if (!siteUrl) {
     return <p className="text-sm text-red-500">No URL provided.</p>;
@@ -291,7 +331,12 @@ export function AnalyzeClient() {
         </div>
       </div>
       <p className="text-sm text-gray-500 mb-6">
-        {status === "running" && "Analysis in progress — this can take 1–3 minutes..."}
+        {status === "running" &&
+          "Reading pages and inferring queries — this takes a moment..."}
+        {status === "selecting" &&
+          "Pick which queries to check against real Google results."}
+        {status === "analyzing" &&
+          "Analysis in progress — this can take 1–3 minutes..."}
         {status === "done" && "Analysis complete."}
         {status === "fatal" && `Analysis stopped: ${fatalMessage}`}
       </p>
@@ -299,6 +344,13 @@ export function AnalyzeClient() {
       <div className="mb-8">
         <ProgressStepper log={log} />
       </div>
+
+      {report && status === "selecting" && (
+        <QuerySelector
+          pageQueries={report.pageQueries}
+          onSubmit={analyzeSelectedQueries}
+        />
+      )}
 
       {report && status === "done" && (
         <>
@@ -309,7 +361,9 @@ export function AnalyzeClient() {
         </>
       )}
 
-      {report && status === "running" && <ReportView report={report} />}
+      {report && (status === "running" || status === "analyzing") && (
+        <ReportView report={report} />
+      )}
     </div>
   );
 }
