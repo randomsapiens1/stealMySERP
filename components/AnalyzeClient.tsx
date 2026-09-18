@@ -10,6 +10,7 @@ import { QuerySelector } from "@/components/QuerySelector";
 import { ReportView } from "@/components/ReportView";
 import { fetchSerpViaExtension, pingExtensionBridge } from "@/lib/orchestrator/extensionSerp";
 import { postJson } from "@/lib/orchestrator/postJson";
+import { cleanAiOverviewText } from "@/lib/shared/aiOverviewText";
 import { chunk, delay, domainOf } from "@/lib/shared/chunk";
 import { localeForLang } from "@/lib/shared/lang";
 import type {
@@ -214,6 +215,12 @@ export function AnalyzeClient() {
             relatedSearches: [],
             aiOverview: null,
             error: err instanceof Error ? err.message : "SERP fetch failed",
+          };
+        }
+        if (serp.aiOverview) {
+          serp.aiOverview = {
+            ...serp.aiOverview,
+            text: cleanAiOverviewText(serp.aiOverview.text),
           };
         }
         serpResults.push(serp);
