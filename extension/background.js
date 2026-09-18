@@ -221,6 +221,14 @@ async function handleSerpSearch({ query, hl, gl }) {
 }
 
 chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) => {
+  // Answered immediately, outside the search queue, so the web app can
+  // detect the extension is installed and reachable without waiting
+  // behind any in-flight (or queued) SERP_SEARCH requests.
+  if (message?.type === "PING") {
+    sendResponse({ pong: true });
+    return false;
+  }
+
   if (message?.type !== "SERP_SEARCH") return false;
 
   queue = queue

@@ -3,6 +3,7 @@
   "name": "StealMySERP Crawler Bridge",
   "version": "1.0.0",
   "description": "Fetches real Google SERP data using your actual logged-in browser session, for the local StealMySERP app.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApMLtngJzJ9p6kQXTspacxf9ijzwY86twxViV23F32/Jk0L4fvZe4Do3BnQmEQIUUIyOskN62pNehcgV4tsEP3KjDyzk2jySJU25Wmtk+44OUx82P5yj1gRERtFLGPOzdzJKNIVMdY5r51lpTLd8Id2bKrdCuvneoeQDccdLAtKJmInA6vh6ZkrOpOf6N2iXVeTI1kZFIMT6oMViUaxU10aghlIgTkqSnzihyzB7HNMQRZhPMz+zf/a28EtK0QXT40zGtadjm9PfPIu93Mk7waHld//V0Oo/1rKnaEwiFQCHgA9YEYoZn7Kspq/hT6XYSn4FuTtLBN/MEqkC89j5bFwIDAQAB",
   "permissions": ["tabs", "scripting"],
   "host_permissions": ["https://www.google.com/*"],
   "icons": {
@@ -24,6 +25,11 @@
     }
   },
   "externally_connectable": {
-    "matches": ["http://localhost/*", "http://127.0.0.1/*"]
+    "matches": [
+      "http://localhost/*",
+      "http://127.0.0.1/*",
+      "https://steal-my-serp.vercel.app/*",
+      "https://steal-my-serp-git-main-rajkumaryhere-gmailcoms-projects.vercel.app/*"
+    ]
   }
 }

@@ -8,7 +8,7 @@ import { Logo } from "@/components/Logo";
 import { ProgressStepper, type LogEntry } from "@/components/ProgressStepper";
 import { QuerySelector } from "@/components/QuerySelector";
 import { ReportView } from "@/components/ReportView";
-import { fetchSerpViaExtension } from "@/lib/orchestrator/extensionSerp";
+import { fetchSerpViaExtension, pingExtensionBridge } from "@/lib/orchestrator/extensionSerp";
 import { postJson } from "@/lib/orchestrator/postJson";
 import { chunk, delay, domainOf } from "@/lib/shared/chunk";
 import type {
@@ -183,7 +183,8 @@ export function AnalyzeClient() {
       );
 
       const useExtensionBridge =
-        process.env.NEXT_PUBLIC_SERP_SOURCE === "extension";
+        process.env.NEXT_PUBLIC_SERP_SOURCE === "extension" &&
+        (await pingExtensionBridge());
       addLog(
         "serp",
         useExtensionBridge

@@ -25,12 +25,39 @@ declare global {
   }
 }
 
-export function isExtensionBridgeConfigured(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    !!window.chrome?.runtime?.sendMessage &&
-    !!process.env.NEXT_PUBLIC_EXTENSION_ID
-  );
+const PING_TIMEOUT_MS = 1500;
+
+// chrome.runtime.sendMessage is exposed by Chrome on every page regardless
+// of whether the target extension is installed — delivery success depends
+// on the extension actually being installed AND its externally_connectable
+// allowlist covering this origin, neither of which is knowable without
+// actually trying. A real ping is the only reliable presence check.
+export async function pingExtensionBridge(): Promise<boolean> {
+  const extensionId = process.env.NEXT_PUBLIC_EXTENSION_ID;
+  const runtime = typeof window !== "undefined" ? window.chrome?.runtime : undefined;
+  if (!extensionId || !runtime?.sendMessage) return false;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve(false);
+    }, PING_TIMEOUT_MS);
+
+    try {
+      runtime.sendMessage(extensionId, { type: "PING" }, (response) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(!runtime.lastError && !!response && (response as { pong?: boolean }).pong === true);
+      });
+    } catch {
+      settled = true;
+      clearTimeout(timer);
+      resolve(false);
+    }
+  });
 }
 
 export async function fetchSerpViaExtension(query: string, lang: Lang): Promise<SerpResult> {
