@@ -3,7 +3,10 @@ import { inferQueriesForPage } from "@/lib/llm/inferQueries";
 import type { PageContent } from "@/lib/shared/types";
 
 export const runtime = "nodejs";
-export const maxDuration = 50;
+// Up to 5 pages processed sequentially, each with its own completeJson
+// call — generous headroom for OpenRouter's free-tier latency (Vercel now
+// allows up to 300s/function on all plans).
+export const maxDuration = 180;
 
 export async function POST(req: NextRequest) {
   const { pages } = await req.json();

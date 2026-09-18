@@ -11,6 +11,7 @@ import { ReportView } from "@/components/ReportView";
 import { fetchSerpViaExtension, pingExtensionBridge } from "@/lib/orchestrator/extensionSerp";
 import { postJson } from "@/lib/orchestrator/postJson";
 import { chunk, delay, domainOf } from "@/lib/shared/chunk";
+import { localeForLang } from "@/lib/shared/lang";
 import type {
   ContactInfo,
   GapReport,
@@ -194,12 +195,27 @@ export function AnalyzeClient() {
       );
       const serpResults: SerpResult[] = [];
       for (const sel of selected) {
-        const serp = useExtensionBridge
-          ? await fetchSerpViaExtension(sel.query, sel.languageOfQuery)
-          : await postJson<SerpResult>("/api/analyze/serp", {
-              query: sel.query,
-              lang: sel.languageOfQuery,
-            });
+        let serp: SerpResult;
+        try {
+          serp = useExtensionBridge
+            ? await fetchSerpViaExtension(sel.query, sel.languageOfQuery)
+            : await postJson<SerpResult>("/api/analyze/serp", {
+                query: sel.query,
+                lang: sel.languageOfQuery,
+              });
+        } catch (err) {
+          const { hl, gl } = localeForLang(sel.languageOfQuery);
+          serp = {
+            query: sel.query,
+            hl,
+            gl,
+            top10: [],
+            paa: [],
+            relatedSearches: [],
+            aiOverview: null,
+            error: err instanceof Error ? err.message : "SERP fetch failed",
+          };
+        }
         serpResults.push(serp);
         addLog(
           "serp",
@@ -221,11 +237,15 @@ export function AnalyzeClient() {
           competitorsByQuery.set(serp.query, []);
           continue;
         }
-        const res = await postJson<{ competitorPages: PageContent[] }>(
-          "/api/analyze/competitors",
-          { urls },
-        );
-        competitorsByQuery.set(serp.query, res.competitorPages);
+        try {
+          const res = await postJson<{ competitorPages: PageContent[] }>(
+            "/api/analyze/competitors",
+            { urls },
+          );
+          competitorsByQuery.set(serp.query, res.competitorPages);
+        } catch {
+          competitorsByQuery.set(serp.query, []);
+        }
         await delay(500);
       }
       addLog("competitors", "Competitor pages fetched.", "success");
@@ -236,21 +256,36 @@ export function AnalyzeClient() {
         const serp = serpResults.find((s) => s.query === sel.query);
         const userPage = okPages.find((p) => p.url === sel.pageUrl);
         if (!serp || !userPage) continue;
-        const res = await postJson<{ gapReport: GapReport }>(
-          "/api/analyze/gaps",
-          {
-            userPage,
-            serp,
-            competitors: competitorsByQuery.get(serp.query) ?? [],
-          },
-        );
-        gapReports.push(res.gapReport);
+        let gapReport: GapReport;
+        try {
+          const res = await postJson<{ gapReport: GapReport }>(
+            "/api/analyze/gaps",
+            {
+              userPage,
+              serp,
+              competitors: competitorsByQuery.get(serp.query) ?? [],
+            },
+          );
+          gapReport = res.gapReport;
+        } catch (err) {
+          gapReport = {
+            query: sel.query,
+            pageUrl: sel.pageUrl,
+            coveredWell: [],
+            contentGaps: [],
+            missingPaaQuestions: [],
+            structureSuggestions: [],
+            recommendedNewSections: [],
+            error: err instanceof Error ? err.message : "Gap analysis failed",
+          };
+        }
+        gapReports.push(gapReport);
         addLog(
           "gaps",
-          res.gapReport.error
-            ? `"${sel.query}" — ${res.gapReport.error}`
+          gapReport.error
+            ? `"${sel.query}" — ${gapReport.error}`
             : `"${sel.query}" — analysis complete`,
-          res.gapReport.error ? "error" : "success",
+          gapReport.error ? "error" : "success",
         );
         await delay(LLM_DELAY_MS);
       }
@@ -273,11 +308,16 @@ export function AnalyzeClient() {
       const domains = Array.from(domainSet).slice(0, MAX_CONTACT_DOMAINS);
       const contacts: ContactInfo[] = [];
       for (const group of chunk(domains, CONTACTS_CHUNK_SIZE)) {
-        const res = await postJson<{ contacts: ContactInfo[] }>(
-          "/api/analyze/contacts",
-          { domains: group },
-        );
-        contacts.push(...res.contacts);
+        try {
+          const res = await postJson<{ contacts: ContactInfo[] }>(
+            "/api/analyze/contacts",
+            { domains: group },
+          );
+          contacts.push(...res.contacts);
+        } catch {
+          // Per-item resilience: a failed contacts chunk shouldn't lose the
+          // SERP/gap data already gathered — just skip these domains.
+        }
       }
       runReport.contacts = contacts;
       setReport({ ...runReport });
@@ -353,17 +393,15 @@ export function AnalyzeClient() {
         />
       )}
 
-      {report && status === "done" && (
+      {report && status !== "selecting" && (
         <>
-          <div className="mb-6">
-            <ExportButtons report={report} />
-          </div>
+          {status === "done" && (
+            <div className="mb-6">
+              <ExportButtons report={report} />
+            </div>
+          )}
           <ReportView report={report} />
         </>
-      )}
-
-      {report && (status === "running" || status === "analyzing") && (
-        <ReportView report={report} />
       )}
     </div>
   );

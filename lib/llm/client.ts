@@ -17,7 +17,16 @@ const MODELS = [
 // until the current one settles — silently freezing every future LLM
 // call in this process (found by exactly this happening after an
 // abandoned run left a call hanging).
-const REQUEST_TIMEOUT_MS = 60_000;
+const REQUEST_TIMEOUT_MS = 25_000;
+// The routes that call completeJson set their own generous maxDuration
+// (90-180s) to stay under Vercel's function timeout. Even so, cap the
+// whole retry chain to a budget comfortably inside the tightest of those
+// (gaps: 90s) — a platform kill mid-request returns a non-JSON error page
+// that crashes the caller's JSON.parse instead of the graceful per-item
+// error this is meant to be. Worst case wall time is TOTAL_BUDGET_MS + one
+// REQUEST_TIMEOUT_MS (a call already in flight when the budget expires
+// still runs to its own timeout).
+const TOTAL_BUDGET_MS = 50_000;
 
 let openrouter: OpenAI | null = null;
 
@@ -81,18 +90,20 @@ export async function completeJson<T>(
   }
 
   return queue.add(async () => {
+    const deadline = Date.now() + TOTAL_BUDGET_MS;
     let lastError: unknown;
 
-    for (const model of MODELS) {
-      for (let attempt = 0; attempt <= 2; attempt++) {
+    modelLoop: for (const model of MODELS) {
+      for (let attempt = 0; attempt <= 1; attempt++) {
+        if (Date.now() >= deadline) break modelLoop;
         try {
           const raw = await callModel(model, systemPrompt, userPrompt);
           return extractJson<T>(raw);
         } catch (err) {
           lastError = err;
           const status = (err as { status?: number })?.status;
-          if (status === 429 && attempt < 2) {
-            await sleep(2000 * (attempt + 1) * 2);
+          if (status === 429 && attempt < 1 && Date.now() < deadline) {
+            await sleep(1500);
             continue;
           }
           break; // non-429 error, or out of retries: try next model
