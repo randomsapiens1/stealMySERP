@@ -1,11 +1,51 @@
-# StealMySERP
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="public/logo-dark.svg">
+    <img src="public/logo.svg" alt="StealMySERP" width="420">
+  </picture>
 
-Takes a website (English and/or Bangla), infers what each page is trying to rank
-for, checks real Google results for those queries (top 10 + People Also Ask +
-related searches + AI Overview, when shown), finds content gaps against
-competitors *and* against what Google's AI Overview already covers, and
-surfaces public contact info on competing sites for outreach — built entirely
-on free tools.
+  <p><strong>Find out what's actually ranking above you — and what it has that you don't.</strong></p>
+</div>
+
+<p align="center">
+  Point it at a website (English and/or Bangla), and it infers what each page
+  is trying to rank for, checks <em>real</em> Google results for those
+  queries, finds concrete content gaps against competitors and against
+  Google's AI Overview, and surfaces public contact info on competing sites
+  for outreach — built entirely on free tools.
+</p>
+
+## Contents
+
+- [Features](#features)
+- [Setup](#setup)
+- [Deploying (Vercel free/Hobby tier)](#deploying-vercel-freehobby-tier)
+- [Getting past Google blocking (local personal use)](#getting-past-google-blocking-local-personal-use)
+- [How it works](#how-it-works)
+- [History dashboard](#history-dashboard)
+- [Known limitations](#known-limitations)
+- [Tests](#tests)
+
+## Features
+
+- **Query inference** — an LLM reads each page (title, headings, body) and
+  infers up to 8 search queries it's realistically trying to rank for, in
+  English or Bangla, ranked by confidence.
+- **Real SERP data** — checks actual Google results for the queries you
+  choose to analyze: top 10 organic results, People Also Ask, related
+  searches, and the AI Overview when Google shows one.
+- **Content gap analysis** — an LLM compares your page against the fetched
+  competitor pages *and* the AI Overview, and reports what you already cover
+  well, concrete missing topics, unanswered PAA questions, and structure
+  suggestions.
+- **Outreach leads** — pulls public emails, contact pages, and social links
+  off the competing domains that outrank you.
+- **History dashboard** — every analyzed page is saved to Postgres, browsable
+  as a per-site "Monitored Websites" view with score tracking across
+  repeated audits.
+- **Zero paid services** — OpenRouter's free-tier models, a free Postgres
+  database (e.g. Neon), and (optionally) your own already-logged-in Chrome
+  session for SERP fetching.
 
 ## Setup
 
@@ -65,9 +105,18 @@ messaging only works from client-side page code, not a server API route.
 Each analysis run is client-orchestrated: the browser calls a series of small
 API routes in sequence (`/api/analyze/{discover,extract,queries,serp,
 competitors,gaps,contacts}`), each scoped to stay well under Vercel's Hobby
-function timeout, and accumulates the results in memory. Export the finished
-report as Markdown or CSV from the UI. When a run finishes, every analyzed
-page is also saved to a local history dashboard (see below).
+function timeout, and accumulates the results in memory.
+
+After pages are discovered and queries inferred, the run pauses so you can
+pick which of the inferred queries actually get checked against Google —
+each one costs a real SERP fetch, competitor page fetches, and an LLM gap
+analysis, so you choose the tradeoff between coverage and run time. Every
+inferred query is kept in the report (and saved to history) whether or not
+you chose to analyze it.
+
+Export the finished report as Markdown or CSV from the UI. When a run
+finishes, every analyzed page is also saved to a local history dashboard
+(see below).
 
 ## History dashboard
 
