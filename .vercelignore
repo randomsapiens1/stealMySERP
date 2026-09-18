@@ -1,0 +1,8 @@
+# These are separate local-only helpers (a Python/Playwright bridge and a
+# Chrome extension) that the deployed Next.js app talks to over HTTP/
+# extension-messaging at runtime — never imported into the app itself, so
+# they don't need to be part of the deployment upload. crawler-service in
+# particular can carry a multi-hundred-MB .venv and browser profile cache
+# locally, which blows past Vercel's upload limits.
+crawler-service/
+extension/
