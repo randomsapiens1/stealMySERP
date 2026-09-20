@@ -22,6 +22,7 @@ export function ContentSummaryClient() {
   const [status, setStatus] = useState<"running" | "done" | "fatal">("running");
   const [fatalMessage, setFatalMessage] = useState("");
   const started = useRef(false);
+  const retryRef = useRef<() => void>(() => {});
 
   function addLog(stage: string, message: string, logStatus: LogEntry["status"]) {
     const id = crypto.randomUUID();
@@ -32,7 +33,13 @@ export function ContentSummaryClient() {
     if (started.current || !url) return;
     started.current = true;
 
-    void (async () => {
+    async function runSummary() {
+      setStatus("running");
+      setFatalMessage("");
+      setLog([]);
+      setPage(null);
+      setSummary(null);
+
       try {
         addLog("extract", "Reading the page...", "pending");
         const extractRes = await postJson<{ extracted: PageContent[] }>(
@@ -60,7 +67,10 @@ export function ContentSummaryClient() {
         setFatalMessage(err instanceof Error ? err.message : "Content summary failed");
         setStatus("fatal");
       }
-    })();
+    }
+
+    retryRef.current = () => void runSummary();
+    void runSummary();
   }, [url]);
 
   if (!url) {
@@ -85,7 +95,16 @@ export function ContentSummaryClient() {
       <p className="text-sm text-gray-500 mb-6 break-all">{url}</p>
 
       {status === "fatal" && (
-        <p className="text-sm text-red-500 mb-6">Stopped: {fatalMessage}</p>
+        <div className="mb-6">
+          <p className="text-sm text-red-500 mb-3">Stopped: {fatalMessage}</p>
+          <button
+            type="button"
+            onClick={() => retryRef.current()}
+            className="rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 text-sm transition-colors"
+          >
+            Retry
+          </button>
+        </div>
       )}
 
       <div className="mb-8">

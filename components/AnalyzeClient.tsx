@@ -47,9 +47,12 @@ export function AnalyzeClient() {
     "running" | "selecting" | "analyzing" | "done" | "fatal"
   >("running");
   const [fatalMessage, setFatalMessage] = useState("");
+  const [retryingGaps, setRetryingGaps] = useState<Set<string>>(new Set());
   const started = useRef(false);
   const runReportRef = useRef<RunReport | null>(null);
   const okPagesRef = useRef<PageContent[]>([]);
+  const competitorsByQueryRef = useRef<Map<string, PageContent[]>>(new Map());
+  const retryRef = useRef<() => void>(() => {});
 
   function addLog(stage: string, message: string, status: LogEntry["status"]) {
     const id = crypto.randomUUID();
@@ -59,9 +62,11 @@ export function AnalyzeClient() {
   useEffect(() => {
     if (started.current || !siteUrl) return;
     started.current = true;
-    void discoverAndInferQueries();
 
     async function discoverAndInferQueries() {
+      setStatus("running");
+      setFatalMessage("");
+
       const runReport: RunReport = {
         siteUrl,
         createdAt: new Date().toISOString(),
@@ -156,6 +161,9 @@ export function AnalyzeClient() {
         setStatus("fatal");
       }
     }
+
+    retryRef.current = () => void discoverAndInferQueries();
+    void discoverAndInferQueries();
   }, [siteUrl, maxPages]);
 
   async function analyzeSelectedQueries(
@@ -165,7 +173,9 @@ export function AnalyzeClient() {
     const okPages = okPagesRef.current;
     if (!runReport) return;
 
+    retryRef.current = () => void analyzeSelectedQueries(picked);
     setStatus("analyzing");
+    setFatalMessage("");
 
     try {
       const selected: SelectedQuery[] = picked
@@ -255,6 +265,7 @@ export function AnalyzeClient() {
         }
         await delay(500);
       }
+      competitorsByQueryRef.current = competitorsByQuery;
       addLog("competitors", "Competitor pages fetched.", "success");
 
       addLog("gaps", "Running content gap analysis...", "pending");
@@ -352,6 +363,61 @@ export function AnalyzeClient() {
     }
   }
 
+  async function retryGap(pageUrl: string, query: string) {
+    const runReport = runReportRef.current;
+    if (!runReport) return;
+
+    const key = `${pageUrl}::${query}`;
+    setRetryingGaps((prev) => new Set(prev).add(key));
+
+    const serp = runReport.serpResults.find((s) => s.query === query);
+    const userPage = okPagesRef.current.find((p) => p.url === pageUrl);
+
+    let gapReport: GapReport;
+    if (!serp || !userPage) {
+      gapReport = {
+        query,
+        pageUrl,
+        coveredWell: [],
+        contentGaps: [],
+        missingPaaQuestions: [],
+        structureSuggestions: [],
+        recommendedNewSections: [],
+        error: "Missing SERP or page data for this query — re-run the full analysis.",
+      };
+    } else {
+      try {
+        const res = await postJson<{ gapReport: GapReport }>("/api/analyze/gaps", {
+          userPage,
+          serp,
+          competitors: competitorsByQueryRef.current.get(query) ?? [],
+        });
+        gapReport = res.gapReport;
+      } catch (err) {
+        gapReport = {
+          query,
+          pageUrl,
+          coveredWell: [],
+          contentGaps: [],
+          missingPaaQuestions: [],
+          structureSuggestions: [],
+          recommendedNewSections: [],
+          error: err instanceof Error ? err.message : "Gap analysis failed",
+        };
+      }
+    }
+
+    runReport.gapReports = runReport.gapReports.map((g) =>
+      g.pageUrl === pageUrl && g.query === query ? gapReport : g,
+    );
+    setReport({ ...runReport });
+    setRetryingGaps((prev) => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  }
+
   if (!siteUrl) {
     return <p className="text-sm text-red-500">No URL provided.</p>;
   }
@@ -389,6 +455,16 @@ export function AnalyzeClient() {
         {status === "fatal" && `Analysis stopped: ${fatalMessage}`}
       </p>
 
+      {status === "fatal" && (
+        <button
+          type="button"
+          onClick={() => retryRef.current()}
+          className="mb-6 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 text-sm transition-colors"
+        >
+          Retry
+        </button>
+      )}
+
       <div className="mb-8">
         <ProgressStepper log={log} />
       </div>
@@ -407,7 +483,7 @@ export function AnalyzeClient() {
               <ExportButtons report={report} />
             </div>
           )}
-          <ReportView report={report} />
+          <ReportView report={report} onRetryGap={retryGap} retryingGaps={retryingGaps} />
         </>
       )}
     </div>

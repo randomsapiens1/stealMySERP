@@ -98,6 +98,26 @@ export function HelpCircleIcon({ className = "h-4 w-4" }: { className?: string }
   );
 }
 
+export function RefreshIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path
+        d="M4.5 12a7.5 7.5 0 0 1 13-5.15M19.5 12a7.5 7.5 0 0 1-13 5.15"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M17.8 3.8v3.5h-3.5M6.2 20.2v-3.5h3.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function ExternalLinkIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
