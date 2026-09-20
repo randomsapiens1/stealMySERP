@@ -4,39 +4,14 @@ import Link from "next/link";
 import { type FormEvent, useState } from "react";
 import { Logo } from "@/components/Logo";
 import { ProgressStepper, type LogEntry } from "@/components/ProgressStepper";
+import { QuickCheckReport, type QueryWithSerp } from "@/components/QuickCheckReport";
 import { fetchSerpViaExtension, pingExtensionBridge } from "@/lib/orchestrator/extensionSerp";
 import { postJson } from "@/lib/orchestrator/postJson";
 import { cleanAiOverviewText } from "@/lib/shared/aiOverviewText";
 import { delay } from "@/lib/shared/chunk";
-import type { InferredQuery, PageContent, PageQueries, SerpResult } from "@/lib/shared/types";
+import type { PageContent, PageQueries, SerpResult } from "@/lib/shared/types";
 
 const SERP_DELAY_MS = 2500;
-
-interface QueryWithSerp {
-  query: InferredQuery;
-  serp: SerpResult | null;
-}
-
-function langBadgeClasses(lang: string): string {
-  return lang === "bn"
-    ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
-    : "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300";
-}
-
-function aggregatePaa(rows: QueryWithSerp[]): string[] {
-  const seen = new Set<string>();
-  const unique: string[] = [];
-  for (const row of rows) {
-    for (const q of row.serp?.paa ?? []) {
-      const key = q.trim().toLowerCase();
-      if (key && !seen.has(key)) {
-        seen.add(key);
-        unique.push(q.trim());
-      }
-    }
-  }
-  return unique;
-}
 
 export function QuickCheckClient() {
   const [urlInput, setUrlInput] = useState("");
@@ -156,8 +131,6 @@ export function QuickCheckClient() {
     }
   }
 
-  const paaList = aggregatePaa(rows);
-
   return (
     <div>
       <div className="flex justify-center mb-6">
@@ -207,71 +180,7 @@ export function QuickCheckClient() {
       </div>
 
       {pageQueries && pageQueries.queries.length > 0 && (
-        <section className="mb-10">
-          <div className="flex items-center gap-2 mb-1">
-            <h2 className="text-lg font-semibold">{pageQueries.primaryTopic || page?.url}</h2>
-            {pageQueries.bangladeshRelevant && (
-              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs whitespace-nowrap bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-                Bangladesh-relevant
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-gray-500 mb-4 break-all">{page?.url}</p>
-
-          <div className="overflow-x-auto mb-6">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="text-left border-b border-gray-200 dark:border-gray-800">
-                  <th className="py-1.5 pr-4">Query</th>
-                  <th className="py-1.5 pr-4">Lang</th>
-                  <th className="py-1.5 pr-4">Intent</th>
-                  <th className="py-1.5 pr-4">Results</th>
-                  <th className="py-1.5 pr-4">PAA</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.query.query} className="border-b border-gray-100 dark:border-gray-900">
-                    <td className="py-1.5 pr-4">{row.query.query}</td>
-                    <td className="py-1.5 pr-4">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${langBadgeClasses(row.query.languageOfQuery)}`}
-                      >
-                        {row.query.languageOfQuery === "bn" ? "BN" : "EN"}
-                      </span>
-                    </td>
-                    <td className="py-1.5 pr-4 text-gray-500">{row.query.intent}</td>
-                    <td className="py-1.5 pr-4 text-gray-500">
-                      {row.serp ? (row.serp.error ? "—" : row.serp.top10.length) : "…"}
-                    </td>
-                    <td className="py-1.5 pr-4 text-gray-500">
-                      {row.serp ? (row.serp.error ? "—" : row.serp.paa.length) : "…"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {status === "done" && (
-            <>
-              <h3 className="text-base font-semibold mb-2">
-                People Also Ask ({paaList.length})
-              </h3>
-              {paaList.length === 0 ? (
-                <p className="text-sm text-gray-500">
-                  No People Also Ask questions were found for these queries.
-                </p>
-              ) : (
-                <ul className="space-y-1.5 text-sm list-disc list-inside">
-                  {paaList.map((q) => (
-                    <li key={q}>{q}</li>
-                  ))}
-                </ul>
-              )}
-            </>
-          )}
-        </section>
+        <QuickCheckReport page={page} pageQueries={pageQueries} rows={rows} status={status} />
       )}
     </div>
   );
