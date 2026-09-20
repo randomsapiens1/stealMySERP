@@ -23,6 +23,17 @@ Body excerpt:
 ${page.bodyTextExcerpt.slice(0, 1500)}`;
 }
 
+export function contentSummarySystemPrompt(): string {
+  return `You are a content analyst. Given a web page's content, summarize what it actually covers — no comparison to competitors, no Google search data, just a read of the page itself.
+Respond with ONLY valid JSON, no prose, no markdown fences, matching this shape:
+{"primaryTopic": string, "summary": string, "keyPoints": string[]}
+Where "primaryTopic" is a short human-readable label, "summary" is 2-4 sentences describing what the page covers and who it's for, and "keyPoints" is 3-6 short bullet points of the specific topics/claims/sections the page actually contains.`;
+}
+
+export function contentSummaryUserPrompt(page: PageContent): string {
+  return inferQueriesUserPrompt(page);
+}
+
 export function quickQueriesSystemPrompt(): string {
   return `You are an SEO analyst. Given a web page's content, do two things:
 1. Determine if this page/site is Bangladesh-relevant: Bangla-language content, a .bd domain, or the business/topic clearly targets a Bangladesh/Bangladeshi audience (e.g. mentions of Bangladesh, Dhaka, BDT, Bangladeshi cities or brands).

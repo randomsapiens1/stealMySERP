@@ -3,33 +3,71 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
+import { FileIcon, GlobeIcon, SearchIcon } from "@/components/history/icons";
 import { Logo } from "@/components/Logo";
+
+type Mode = "full" | "quick" | "content";
+
+const MODES: {
+  id: Mode;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+  buttonLabel: string;
+}[] = [
+  {
+    id: "full",
+    label: "Full analysis",
+    description:
+      "Crawl your site, infer queries, check real Google results, find content gaps and outreach contacts.",
+    icon: <GlobeIcon />,
+    buttonLabel: "Start full analysis",
+  },
+  {
+    id: "quick",
+    label: "Get queries",
+    description:
+      "Infer ~10 likely search queries (English + Bangla) for one link and pull real Google People Also Ask questions.",
+    icon: <SearchIcon />,
+    buttonLabel: "Get queries",
+  },
+  {
+    id: "content",
+    label: "Analyze content",
+    description:
+      "Just read the page and summarize what it covers — no Google calls, the fastest option.",
+    icon: <FileIcon />,
+    buttonLabel: "Analyze content",
+  },
+];
 
 export default function Home() {
   const router = useRouter();
   const [siteUrl, setSiteUrl] = useState("");
+  const [mode, setMode] = useState<Mode>("full");
   const [maxPages, setMaxPages] = useState(8);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!siteUrl.trim()) return;
-    const params = new URLSearchParams({
-      url: siteUrl.trim(),
-      maxPages: String(maxPages),
-    });
-    router.push(`/analyze?${params.toString()}`);
+    const url = siteUrl.trim();
+    if (!url) return;
+
+    if (mode === "full") {
+      const params = new URLSearchParams({ url, maxPages: String(maxPages) });
+      router.push(`/analyze?${params.toString()}`);
+    } else if (mode === "quick") {
+      router.push(`/quick-check?${new URLSearchParams({ url }).toString()}`);
+    } else {
+      router.push(`/content-summary?${new URLSearchParams({ url }).toString()}`);
+    }
   }
+
+  const selectedMode = MODES.find((m) => m.id === mode)!;
 
   return (
     <main className="flex-1 flex items-center justify-center px-4 py-16">
       <div className="w-full max-w-xl">
         <div className="flex justify-end gap-2 mb-4">
-          <Link
-            href="/quick-check"
-            className="rounded-md border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-900"
-          >
-            Quick check
-          </Link>
           <Link
             href="/extension"
             className="rounded-md border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-900"
@@ -48,48 +86,65 @@ export default function Home() {
           <Logo className="h-24 sm:h-28 w-auto" />
         </div>
 
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-8 text-center">
-          Crawls your site (English &amp; Bangla), infers target queries, checks real
-          Google results (top 10 + People Also Ask + related searches), finds content
-          gaps, and surfaces public outreach contacts — built entirely on free tools.
-        </p>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <input
+            id="siteUrl"
+            type="url"
+            required
+            placeholder="https://example.com"
+            value={siteUrl}
+            onChange={(e) => setSiteUrl(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="siteUrl" className="block text-sm font-medium mb-1">
-              Website URL
-            </label>
-            <input
-              id="siteUrl"
-              type="url"
-              required
-              placeholder="https://example.com"
-              value={siteUrl}
-              onChange={(e) => setSiteUrl(e.target.value)}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {MODES.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setMode(m.id)}
+                aria-pressed={mode === m.id}
+                className={`text-left rounded-lg border px-3 py-2.5 transition-colors ${
+                  mode === m.id
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40 dark:border-blue-500"
+                    : "border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900"
+                }`}
+              >
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span
+                    className={mode === m.id ? "text-blue-600 dark:text-blue-400" : "text-gray-400"}
+                  >
+                    {m.icon}
+                  </span>
+                  <span className="text-sm font-medium">{m.label}</span>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{m.description}</p>
+              </button>
+            ))}
           </div>
 
-          <div>
-            <label htmlFor="maxPages" className="block text-sm font-medium mb-1">
-              Max pages to crawl: {maxPages}
-            </label>
-            <input
-              id="maxPages"
-              type="range"
-              min={1}
-              max={15}
-              value={maxPages}
-              onChange={(e) => setMaxPages(Number(e.target.value))}
-              className="w-full"
-            />
-          </div>
+          {mode === "full" && (
+            <div>
+              <label htmlFor="maxPages" className="block text-sm font-medium mb-1">
+                Max pages to crawl: {maxPages}
+              </label>
+              <input
+                id="maxPages"
+                type="range"
+                min={1}
+                max={15}
+                value={maxPages}
+                onChange={(e) => setMaxPages(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
+          )}
 
           <button
             type="submit"
             className="w-full rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 text-sm transition-colors"
           >
-            Start analysis
+            {selectedMode.buttonLabel}
           </button>
         </form>
 

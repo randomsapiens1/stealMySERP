@@ -34,6 +34,14 @@ export interface InferredQuery {
   languageOfQuery: Lang;
 }
 
+export interface ContentSummary {
+  pageUrl: string;
+  primaryTopic: string;
+  summary: string;
+  keyPoints: string[];
+  error?: string;
+}
+
 export interface PageQueries {
   pageUrl: string;
   primaryTopic: string;
