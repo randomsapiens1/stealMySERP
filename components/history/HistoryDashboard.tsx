@@ -5,9 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 import type { AnalyzedPageRecord } from "@/lib/db/history";
 import { historyToCsv } from "@/lib/export/historyToCsv";
 import { groupBySite, relativeTimeFromNow, type SiteStats } from "@/lib/history/metrics";
-import { DownloadIcon, FileIcon, GapIcon, GlobeIcon, MailIcon, SearchIcon } from "./icons";
-import { MetricBar, ScoreRing } from "./ScoreRing";
-import { StatCard } from "./StatCard";
+import { DashboardStatCard } from "./DashboardStatCard";
+import { DownloadIcon, GapIcon, GlobeIcon, MailIcon, SearchIcon } from "./icons";
+import { MetricBar } from "./ScoreRing";
 
 function download(filename: string, content: string, mimeType: string) {
   const blob = new Blob([content], { type: mimeType });
@@ -55,9 +55,6 @@ function SiteRow({ group }: { group: SiteStats }) {
             </div>
           </div>
         </div>
-      </td>
-      <td className="py-3 px-3">
-        <ScoreRing value={group.top10Pct} />
       </td>
       <td className="py-3 px-3">
         <MetricBar value={group.top3Pct} />
@@ -127,6 +124,27 @@ export function HistoryDashboard() {
 
   return (
     <div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
+        <DashboardStatCard
+          icon={<GlobeIcon />}
+          label="Sites monitored"
+          value={groups.length}
+          sublabel={`${records.length} page${records.length === 1 ? "" : "s"} analyzed`}
+        />
+        <DashboardStatCard
+          icon={<GapIcon />}
+          label="Content gaps"
+          value={totalGaps}
+          sublabel="Across all sites"
+        />
+        <DashboardStatCard
+          icon={<MailIcon />}
+          label="Contacts found"
+          value={totalContacts}
+          sublabel="Outreach leads"
+        />
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h2 className="text-lg font-semibold">Monitored Websites</h2>
         <div className="flex flex-wrap items-center gap-2">
@@ -168,37 +186,27 @@ export function HistoryDashboard() {
       )}
 
       {records.length > 0 && (
-        <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-            <StatCard icon={<GlobeIcon />} label="Sites" value={groups.length} />
-            <StatCard icon={<FileIcon />} label="Pages analyzed" value={records.length} />
-            <StatCard icon={<GapIcon />} label="Content gaps" value={totalGaps} />
-            <StatCard icon={<MailIcon />} label="Contacts found" value={totalContacts} />
+        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="text-sm border-collapse w-full">
+              <thead>
+                <tr className="bg-gray-50 dark:bg-gray-900 text-left text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                  <th className="py-3 pl-4 pr-4">Website</th>
+                  <th className="py-3 px-3">Top 3</th>
+                  <th className="py-3 px-3">Top 10</th>
+                  <th className="py-3 px-3">Coverage</th>
+                  <th className="py-3 px-3">Issues</th>
+                  <th className="py-3 pl-3 pr-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {groups.map((group) => (
+                  <SiteRow key={group.site} group={group} />
+                ))}
+              </tbody>
+            </table>
           </div>
-
-          <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="text-sm border-collapse w-full">
-                <thead>
-                  <tr className="bg-gray-50 dark:bg-gray-900 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                    <th className="py-2.5 pl-4 pr-4">Website</th>
-                    <th className="py-2.5 px-3">Score</th>
-                    <th className="py-2.5 px-3">Top 3</th>
-                    <th className="py-2.5 px-3">Top 10</th>
-                    <th className="py-2.5 px-3">Coverage</th>
-                    <th className="py-2.5 px-3">Issues</th>
-                    <th className="py-2.5 pl-3 pr-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {groups.map((group) => (
-                    <SiteRow key={group.site} group={group} />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
+        </div>
       )}
     </div>
   );

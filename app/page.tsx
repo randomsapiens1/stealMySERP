@@ -3,43 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
-import { FileIcon, GlobeIcon, SearchIcon } from "@/components/history/icons";
 import { Logo } from "@/components/Logo";
-
-type Mode = "full" | "quick" | "content";
-
-const MODES: {
-  id: Mode;
-  label: string;
-  description: string;
-  icon: React.ReactNode;
-  buttonLabel: string;
-}[] = [
-  {
-    id: "full",
-    label: "Full analysis",
-    description:
-      "Crawl your site, infer queries, check real Google results, find content gaps and outreach contacts.",
-    icon: <GlobeIcon />,
-    buttonLabel: "Start full analysis",
-  },
-  {
-    id: "quick",
-    label: "Get queries",
-    description:
-      "Infer ~10 likely search queries (English + Bangla) for one link and pull real Google People Also Ask questions.",
-    icon: <SearchIcon />,
-    buttonLabel: "Get queries",
-  },
-  {
-    id: "content",
-    label: "Analyze content",
-    description:
-      "Just read the page and summarize what it covers — no Google calls, the fastest option.",
-    icon: <FileIcon />,
-    buttonLabel: "Analyze content",
-  },
-];
+import { MODES, type Mode, modeHref } from "@/lib/shared/modes";
 
 export default function Home() {
   const router = useRouter();
@@ -49,17 +14,8 @@ export default function Home() {
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const url = siteUrl.trim();
-    if (!url) return;
-
-    if (mode === "full") {
-      const params = new URLSearchParams({ url, maxPages: String(maxPages) });
-      router.push(`/analyze?${params.toString()}`);
-    } else if (mode === "quick") {
-      router.push(`/quick-check?${new URLSearchParams({ url }).toString()}`);
-    } else {
-      router.push(`/content-summary?${new URLSearchParams({ url }).toString()}`);
-    }
+    if (!siteUrl.trim()) return;
+    router.push(modeHref(mode, siteUrl, maxPages));
   }
 
   const selectedMode = MODES.find((m) => m.id === mode)!;
@@ -78,7 +34,7 @@ export default function Home() {
             href="/history"
             className="rounded-md border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-900"
           >
-            History
+            Dashboard
           </Link>
         </div>
 
