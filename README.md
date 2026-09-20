@@ -138,7 +138,11 @@ the schema and `app/api/history/*` for the routes.
 - **Free LLM rate limits** (OpenRouter's free models) mean a run is
   deliberately paced and can take 1–3 minutes. OpenRouter's free-model catalog
   changes over time — see `lib/llm/client.ts` for the current picks and how
-  to swap them if a model gets discontinued or rate-limited.
+  to swap them if a model gets discontinued or rate-limited. If you hit
+  OpenRouter's free-models-per-day cap, you can set `OPENROUTER_API_KEYS`
+  (comma-separated) instead of `OPENROUTER_API_KEY` to add more accounts —
+  they're drawn on one at a time, only switching once the current one is
+  exhausted for the day.
 
 ## Tests
 

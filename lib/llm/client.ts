@@ -28,16 +28,49 @@ const REQUEST_TIMEOUT_MS = 25_000;
 // still runs to its own timeout).
 const TOTAL_BUDGET_MS = 50_000;
 
+// Supports multiple OpenRouter accounts (each with its own free-tier daily
+// quota) as OPENROUTER_API_KEYS="key1,key2,...". Falls back to the single
+// OPENROUTER_API_KEY for backwards compatibility. Keys are used strictly
+// one at a time, in order — the next key is only touched once the current
+// one reports its free-models-per-day quota is exhausted, never round-robin
+// or in parallel. This is deliberate: interleaving requests across several
+// accounts looks like coordinated quota evasion, whereas fully draining one
+// account before moving to the next reads as one user who happens to have
+// switched keys.
+const API_KEYS = (process.env.OPENROUTER_API_KEYS ?? process.env.OPENROUTER_API_KEY ?? "")
+  .split(",")
+  .map((k) => k.trim())
+  .filter(Boolean);
+
+// Module-level (not per-request) so once a key is marked exhausted, every
+// subsequent call in this process reuses that decision instead of
+// re-discovering it — but this only holds within one warm serverless
+// instance; a different instance (cold start, or a concurrent instance
+// under load) starts back at index 0. Acceptable here since Fluid Compute
+// reuses instances aggressively and this app's usage is low-volume.
+let activeKeyIndex = 0;
 let openrouter: OpenAI | null = null;
+let openrouterKeyForClient: string | null = null;
 
 function getClient(): OpenAI {
-  if (!openrouter) {
-    openrouter = new OpenAI({
-      apiKey: process.env.OPENROUTER_API_KEY,
-      baseURL: "https://openrouter.ai/api/v1",
-    });
+  const key = API_KEYS[activeKeyIndex];
+  if (!openrouter || openrouterKeyForClient !== key) {
+    openrouter = new OpenAI({ apiKey: key, baseURL: "https://openrouter.ai/api/v1" });
+    openrouterKeyForClient = key;
   }
   return openrouter;
+}
+
+function isDailyQuotaError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return message.includes("free-models-per-day");
+}
+
+// Returns true if there was a next key to switch to.
+function advanceKey(): boolean {
+  if (activeKeyIndex >= API_KEYS.length - 1) return false;
+  activeKeyIndex += 1;
+  return true;
 }
 
 // Only throttles calls within a single serverless invocation (Vercel
@@ -83,32 +116,43 @@ export async function completeJson<T>(
   systemPrompt: string,
   userPrompt: string
 ): Promise<T> {
-  if (!process.env.OPENROUTER_API_KEY) {
+  if (API_KEYS.length === 0) {
     throw new Error(
       "OPENROUTER_API_KEY is not set. Get a free key at openrouter.ai/keys."
     );
   }
 
   return queue.add(async () => {
-    const deadline = Date.now() + TOTAL_BUDGET_MS;
     let lastError: unknown;
 
-    modelLoop: for (const model of MODELS) {
-      for (let attempt = 0; attempt <= 1; attempt++) {
-        if (Date.now() >= deadline) break modelLoop;
-        try {
-          const raw = await callModel(model, systemPrompt, userPrompt);
-          return extractJson<T>(raw);
-        } catch (err) {
-          lastError = err;
-          const status = (err as { status?: number })?.status;
-          if (status === 429 && attempt < 1 && Date.now() < deadline) {
-            await sleep(1500);
-            continue;
+    keyLoop: while (true) {
+      const deadline = Date.now() + TOTAL_BUDGET_MS;
+
+      modelLoop: for (const model of MODELS) {
+        for (let attempt = 0; attempt <= 1; attempt++) {
+          if (Date.now() >= deadline) break modelLoop;
+          try {
+            const raw = await callModel(model, systemPrompt, userPrompt);
+            return extractJson<T>(raw);
+          } catch (err) {
+            lastError = err;
+            if (isDailyQuotaError(err)) {
+              // This key is done for the day — lock it out and, if another
+              // account is configured, retry this same request from the top
+              // on the next one rather than surfacing a failure.
+              if (advanceKey()) continue keyLoop;
+              break keyLoop;
+            }
+            const status = (err as { status?: number })?.status;
+            if (status === 429 && attempt < 1 && Date.now() < deadline) {
+              await sleep(1500);
+              continue;
+            }
+            break; // non-429 error, or out of retries: try next model
           }
-          break; // non-429 error, or out of retries: try next model
         }
       }
+      break; // exhausted all models on this key without a daily-quota signal
     }
 
     throw lastError instanceof Error
