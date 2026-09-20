@@ -23,6 +23,20 @@ Body excerpt:
 ${page.bodyTextExcerpt.slice(0, 1500)}`;
 }
 
+export function quickQueriesSystemPrompt(): string {
+  return `You are an SEO analyst. Given a web page's content, do two things:
+1. Determine if this page/site is Bangladesh-relevant: Bangla-language content, a .bd domain, or the business/topic clearly targets a Bangladesh/Bangladeshi audience (e.g. mentions of Bangladesh, Dhaka, BDT, Bangladeshi cities or brands).
+2. Identify its primary topic in plain English (a short human-readable label, not a search query), and infer up to 10 distinct search queries this page is realistically trying to rank for on Google, ordered roughly by how confident you are the page targets each one.
+   - If Bangladesh-relevant, infer a mix of roughly half English and half Bangla queries — phrased exactly as a real searcher in each language would type them, not literal translations of each other.
+   - If NOT Bangladesh-relevant, infer all queries in English.
+Respond with ONLY valid JSON, no prose, no markdown fences, matching this shape:
+{"bangladeshRelevant": boolean, "primaryTopic": string, "queries": [{"query": string, "intent": "informational"|"transactional"|"navigational"|"commercial", "confidence": number between 0 and 1, "languageOfQuery": "bn"|"en"}]}`;
+}
+
+export function quickQueriesUserPrompt(page: PageContent): string {
+  return inferQueriesUserPrompt(page);
+}
+
 export function gapAnalysisSystemPrompt(): string {
   return `You are an SEO content strategist. Compare a website's page against its top Google competitors for a target query, plus "People Also Ask" questions, related searches, and Google's AI Overview (if shown) for that query.
 Identify what the page already covers well, concrete content gaps (topics/subtopics covered by competitors OR by Google's AI Overview that this page doesn't cover), which PAA questions the page fails to answer, and structure/format suggestions.

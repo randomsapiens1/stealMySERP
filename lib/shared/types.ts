@@ -37,6 +37,8 @@ export interface InferredQuery {
 export interface PageQueries {
   pageUrl: string;
   primaryTopic: string;
+  // Only set by the quick-check flow's bilingual query inference.
+  bangladeshRelevant?: boolean;
   queries: InferredQuery[];
 }
 
