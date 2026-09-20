@@ -6,7 +6,7 @@ import type { AnalyzedPageRecord } from "@/lib/db/history";
 import { historyToCsv } from "@/lib/export/historyToCsv";
 import { groupBySite, relativeTimeFromNow, type SiteStats } from "@/lib/history/metrics";
 import { DashboardStatCard } from "./DashboardStatCard";
-import { DownloadIcon, GapIcon, GlobeIcon, MailIcon, SearchIcon } from "./icons";
+import { DownloadIcon, GapIcon, GlobeIcon, MailIcon, RefreshIcon, SearchIcon } from "./icons";
 import { MetricBar } from "./ScoreRing";
 
 function download(filename: string, content: string, mimeType: string) {
@@ -177,7 +177,20 @@ export function HistoryDashboard() {
       </div>
 
       {loading && <p className="text-sm text-gray-500">Loading...</p>}
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && (
+        <div className="flex items-center gap-2 text-sm text-red-500 mb-2">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => load(search)}
+            title="Retry"
+            aria-label="Retry loading history"
+            className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+          >
+            <RefreshIcon className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {!loading && !error && records.length === 0 && (
         <p className="text-sm text-gray-500">

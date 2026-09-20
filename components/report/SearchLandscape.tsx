@@ -1,3 +1,4 @@
+import { RefreshIcon } from "@/components/history/icons";
 import { domainOf } from "@/lib/shared/chunk";
 import { brandFromDomain, classifySource, findRank } from "@/lib/shared/serpInsights";
 import type { RunReport } from "@/lib/shared/types";
@@ -7,7 +8,15 @@ function rankLabel(rank: number | null): string {
   return rank === null ? "Not ranking" : `#${rank}`;
 }
 
-export function SearchLandscape({ report }: { report: RunReport }) {
+export function SearchLandscape({
+  report,
+  onRetrySerp,
+  retryingSerp,
+}: {
+  report: RunReport;
+  onRetrySerp?: (query: string) => void;
+  retryingSerp?: Set<string>;
+}) {
   const ownDomain = domainOf(report.siteUrl) ?? "";
   const ownBrand = brandFromDomain(ownDomain);
 
@@ -28,12 +37,28 @@ export function SearchLandscape({ report }: { report: RunReport }) {
                   ? findRank(owningPage.pageUrl, serp.top10)
                   : null;
 
+            const retrying = retryingSerp?.has(serp.query) ?? false;
+
             return (
               <div
                 key={serp.query}
                 className="border border-gray-200 dark:border-gray-800 rounded-md p-4"
               >
-                <div className="text-sm font-medium mb-1">Query: {serp.query}</div>
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="text-sm font-medium">Query: {serp.query}</div>
+                  {onRetrySerp && (
+                    <button
+                      type="button"
+                      onClick={() => onRetrySerp(serp.query)}
+                      disabled={retrying}
+                      title="Retry this query's Google search"
+                      aria-label={`Retry Google search for "${serp.query}"`}
+                      className="shrink-0 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-40 disabled:cursor-wait"
+                    >
+                      <RefreshIcon className={`h-4 w-4 ${retrying ? "animate-spin" : ""}`} />
+                    </button>
+                  )}
+                </div>
 
                 {serp.blocked || serp.error ? (
                   <p className="text-sm text-red-500">{serp.error}</p>

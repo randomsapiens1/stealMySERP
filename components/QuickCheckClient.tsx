@@ -24,6 +24,7 @@ export function QuickCheckClient() {
   const [page, setPage] = useState<PageContent | null>(null);
   const [pageQueries, setPageQueries] = useState<PageQueries | null>(null);
   const [rows, setRows] = useState<QueryWithSerp[]>([]);
+  const [retryingQueries, setRetryingQueries] = useState<Set<string>>(new Set());
   const started = useRef(false);
   const retryRef = useRef<() => void>(() => {});
 
@@ -140,6 +141,47 @@ export function QuickCheckClient() {
     void runCheck();
   }, [url]);
 
+  async function retryQuery(query: string) {
+    const inferredQuery = pageQueries?.queries.find((q) => q.query === query);
+    if (!inferredQuery) return;
+
+    setRetryingQueries((prev) => new Set(prev).add(query));
+
+    const useExtensionBridge =
+      process.env.NEXT_PUBLIC_SERP_SOURCE === "extension" && (await pingExtensionBridge());
+
+    let serp: SerpResult;
+    try {
+      serp = useExtensionBridge
+        ? await fetchSerpViaExtension(inferredQuery.query, inferredQuery.languageOfQuery)
+        : await postJson<SerpResult>("/api/analyze/serp", {
+            query: inferredQuery.query,
+            lang: inferredQuery.languageOfQuery,
+          });
+    } catch (err) {
+      serp = {
+        query: inferredQuery.query,
+        hl: inferredQuery.languageOfQuery === "bn" ? "bn" : "en",
+        gl: inferredQuery.languageOfQuery === "bn" ? "bd" : "us",
+        top10: [],
+        paa: [],
+        relatedSearches: [],
+        aiOverview: null,
+        error: err instanceof Error ? err.message : "SERP fetch failed",
+      };
+    }
+    if (serp.aiOverview) {
+      serp.aiOverview = { ...serp.aiOverview, text: cleanAiOverviewText(serp.aiOverview.text) };
+    }
+
+    setRows((prev) => prev.map((r) => (r.query.query === query ? { ...r, serp } : r)));
+    setRetryingQueries((prev) => {
+      const next = new Set(prev);
+      next.delete(query);
+      return next;
+    });
+  }
+
   if (!url) {
     return <p className="text-sm text-red-500">No URL provided.</p>;
   }
@@ -179,7 +221,14 @@ export function QuickCheckClient() {
       </div>
 
       {pageQueries && pageQueries.queries.length > 0 && (
-        <QuickCheckReport page={page} pageQueries={pageQueries} rows={rows} status={status} />
+        <QuickCheckReport
+          page={page}
+          pageQueries={pageQueries}
+          rows={rows}
+          status={status}
+          onRetryQuery={retryQuery}
+          retryingQueries={retryingQueries}
+        />
       )}
     </div>
   );

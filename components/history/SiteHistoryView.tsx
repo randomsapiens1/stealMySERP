@@ -13,7 +13,7 @@ import {
   runHeaderLabel,
   siteLabel,
 } from "@/lib/history/metrics";
-import { ExternalLinkIcon, FileIcon, GapIcon, GlobeIcon, MailIcon, SearchIcon } from "./icons";
+import { ExternalLinkIcon, FileIcon, GapIcon, GlobeIcon, MailIcon, RefreshIcon, SearchIcon } from "./icons";
 import { StatCard } from "./StatCard";
 
 function QueryRankBadge({ query }: { query: SavedQuery }) {
@@ -204,11 +204,13 @@ function PageBlock({
 export function SiteHistoryView({ site }: { site: string }) {
   const [records, setRecords] = useState<AnalyzedPageRecord[] | null>(null);
   const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
+      setError("");
       try {
         const res = await fetch(`/api/history/list?search=${encodeURIComponent(site)}`);
         const data = await res.json();
@@ -228,7 +230,7 @@ export function SiteHistoryView({ site }: { site: string }) {
     return () => {
       cancelled = true;
     };
-  }, [site]);
+  }, [site, reloadKey]);
 
   const pages = useMemo(() => latestRecordsByPage(records ?? []), [records]);
   const stats = useMemo(() => groupBySite(records ?? [])[0], [records]);
@@ -248,7 +250,21 @@ export function SiteHistoryView({ site }: { site: string }) {
     setRecords((prev) => (prev ? prev.filter((r) => r.id !== id) : prev));
   }
 
-  if (error) return <p className="text-sm text-red-500">{error}</p>;
+  if (error)
+    return (
+      <div className="flex items-center gap-2 text-sm text-red-500">
+        <span>{error}</span>
+        <button
+          type="button"
+          onClick={() => setReloadKey((k) => k + 1)}
+          title="Retry"
+          aria-label="Retry loading site history"
+          className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+        >
+          <RefreshIcon className="h-4 w-4" />
+        </button>
+      </div>
+    );
   if (records === null) return <p className="text-sm text-gray-500">Loading...</p>;
   if (records.length === 0 || !stats) {
     return <p className="text-sm text-gray-500">No history found for {site}.</p>;

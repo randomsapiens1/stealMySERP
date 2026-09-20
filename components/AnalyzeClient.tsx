@@ -48,10 +48,12 @@ export function AnalyzeClient() {
   >("running");
   const [fatalMessage, setFatalMessage] = useState("");
   const [retryingGaps, setRetryingGaps] = useState<Set<string>>(new Set());
+  const [retryingSerp, setRetryingSerp] = useState<Set<string>>(new Set());
   const started = useRef(false);
   const runReportRef = useRef<RunReport | null>(null);
   const okPagesRef = useRef<PageContent[]>([]);
   const competitorsByQueryRef = useRef<Map<string, PageContent[]>>(new Map());
+  const selectedRef = useRef<SelectedQuery[]>([]);
   const retryRef = useRef<() => void>(() => {});
 
   function addLog(stage: string, message: string, status: LogEntry["status"]) {
@@ -187,6 +189,7 @@ export function AnalyzeClient() {
             : null;
         })
         .filter((q): q is SelectedQuery => q !== null);
+      selectedRef.current = selected;
 
       addLog(
         "queries",
@@ -363,6 +366,50 @@ export function AnalyzeClient() {
     }
   }
 
+  async function retrySerp(query: string) {
+    const runReport = runReportRef.current;
+    const sel = selectedRef.current.find((s) => s.query === query);
+    if (!runReport || !sel) return;
+
+    setRetryingSerp((prev) => new Set(prev).add(query));
+
+    const useExtensionBridge =
+      process.env.NEXT_PUBLIC_SERP_SOURCE === "extension" && (await pingExtensionBridge());
+
+    let serp: SerpResult;
+    try {
+      serp = useExtensionBridge
+        ? await fetchSerpViaExtension(sel.query, sel.languageOfQuery)
+        : await postJson<SerpResult>("/api/analyze/serp", {
+            query: sel.query,
+            lang: sel.languageOfQuery,
+          });
+    } catch (err) {
+      const { hl, gl } = localeForLang(sel.languageOfQuery);
+      serp = {
+        query: sel.query,
+        hl,
+        gl,
+        top10: [],
+        paa: [],
+        relatedSearches: [],
+        aiOverview: null,
+        error: err instanceof Error ? err.message : "SERP fetch failed",
+      };
+    }
+    if (serp.aiOverview) {
+      serp.aiOverview = { ...serp.aiOverview, text: cleanAiOverviewText(serp.aiOverview.text) };
+    }
+
+    runReport.serpResults = runReport.serpResults.map((s) => (s.query === query ? serp : s));
+    setReport({ ...runReport });
+    setRetryingSerp((prev) => {
+      const next = new Set(prev);
+      next.delete(query);
+      return next;
+    });
+  }
+
   async function retryGap(pageUrl: string, query: string) {
     const runReport = runReportRef.current;
     if (!runReport) return;
@@ -483,7 +530,13 @@ export function AnalyzeClient() {
               <ExportButtons report={report} />
             </div>
           )}
-          <ReportView report={report} onRetryGap={retryGap} retryingGaps={retryingGaps} />
+          <ReportView
+            report={report}
+            onRetryGap={retryGap}
+            retryingGaps={retryingGaps}
+            onRetrySerp={retrySerp}
+            retryingSerp={retryingSerp}
+          />
         </>
       )}
     </div>

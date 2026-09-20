@@ -7,6 +7,7 @@ import {
   FileIcon,
   GlobeIcon,
   HelpCircleIcon,
+  RefreshIcon,
   SearchIcon,
 } from "@/components/history/icons";
 import { StatCard } from "@/components/history/StatCard";
@@ -149,10 +150,14 @@ function QueryCard({
   row,
   expanded,
   onToggle,
+  onRetry,
+  retrying,
 }: {
   row: QueryWithSerp;
   expanded: boolean;
   onToggle: () => void;
+  onRetry?: () => void;
+  retrying?: boolean;
 }) {
   const { query, serp } = row;
   const hasError = !!(serp?.error || serp?.blocked);
@@ -162,27 +167,39 @@ function QueryCard({
       id={queryDomId(query.query)}
       className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 overflow-hidden scroll-mt-4"
     >
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-900/60"
-      >
-        <span
-          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs shrink-0 ${langBadgeClasses(query.languageOfQuery)}`}
-        >
-          {query.languageOfQuery === "bn" ? "BN" : "EN"}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">{query.query}</span>
-        <span className="hidden sm:inline text-xs text-gray-500 dark:text-gray-400 shrink-0">
-          {query.intent}
-        </span>
-        <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0 tabular-nums">
-          {serp === null ? "…" : hasError ? "blocked" : `${serp.top10.length} results · ${serp.paa.length} PAA`}
-        </span>
-        <ChevronDownIcon
-          className={`h-4 w-4 text-gray-400 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
-        />
-      </button>
+      <div className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-900/60">
+        <button type="button" onClick={onToggle} className="flex-1 flex items-center gap-3 min-w-0 text-left">
+          <span
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs shrink-0 ${langBadgeClasses(query.languageOfQuery)}`}
+          >
+            {query.languageOfQuery === "bn" ? "BN" : "EN"}
+          </span>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium">{query.query}</span>
+          <span className="hidden sm:inline text-xs text-gray-500 dark:text-gray-400 shrink-0">
+            {query.intent}
+          </span>
+          <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0 tabular-nums">
+            {serp === null ? "…" : hasError ? "blocked" : `${serp.top10.length} results · ${serp.paa.length} PAA`}
+          </span>
+        </button>
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            disabled={retrying}
+            title="Retry this query's Google search"
+            aria-label={`Retry Google search for "${query.query}"`}
+            className="shrink-0 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-40 disabled:cursor-wait"
+          >
+            <RefreshIcon className={`h-4 w-4 ${retrying ? "animate-spin" : ""}`} />
+          </button>
+        )}
+        <button type="button" onClick={onToggle} aria-label="Toggle details">
+          <ChevronDownIcon
+            className={`h-4 w-4 text-gray-400 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
+          />
+        </button>
+      </div>
       {expanded && serp && (
         <div className="px-4 pb-4 pt-1 border-t border-gray-100 dark:border-gray-900">
           <QueryDetail serp={serp} />
@@ -197,11 +214,15 @@ export function QuickCheckReport({
   pageQueries,
   rows,
   status,
+  onRetryQuery,
+  retryingQueries,
 }: {
   page: PageContent | null;
   pageQueries: PageQueries;
   rows: QueryWithSerp[];
   status: "idle" | "running" | "done" | "fatal";
+  onRetryQuery?: (query: string) => void;
+  retryingQueries?: Set<string>;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -256,6 +277,8 @@ export function QuickCheckReport({
             row={row}
             expanded={expanded.has(row.query.query)}
             onToggle={() => toggle(row.query.query)}
+            onRetry={onRetryQuery ? () => onRetryQuery(row.query.query) : undefined}
+            retrying={retryingQueries?.has(row.query.query) ?? false}
           />
         ))}
       </div>
