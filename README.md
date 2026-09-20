@@ -28,8 +28,19 @@
 
 ## Features
 
+- **Three ways to check a link** — pick a mode on the home page, all sharing
+  one URL box:
+  - **Full analysis** — crawls a site, infers target queries per page, checks
+    real Google results, finds content gaps, and surfaces outreach contacts.
+  - **Quick check** — paste one link and get up to 10 likely queries (English
+    + Bangla when the site looks Bangladesh-relevant) with real Google People
+    Also Ask questions for each — no crawl, no gap analysis, results in a
+    clickable dashboard.
+  - **Content summary** — just reads a page and has an LLM summarize what it
+    covers (topic, summary, key points) — no Google calls at all, the
+    fastest option.
 - **Query inference** — an LLM reads each page (title, headings, body) and
-  infers up to 8 search queries it's realistically trying to rank for, in
+  infers the search queries it's realistically trying to rank for, in
   English or Bangla, ranked by confidence.
 - **Real SERP data** — checks actual Google results for the queries you
   choose to analyze: top 10 organic results, People Also Ask, related
@@ -43,6 +54,11 @@
 - **History dashboard** — every analyzed page is saved to Postgres, browsable
   as a per-site "Monitored Websites" view with score tracking across
   repeated audits.
+- **Resilient runs** — a Retry button on any failed or timed-out run, plus a
+  per-query reload icon on gap analysis so one timed-out item can be redone
+  without re-running everything else. Optionally spread LLM calls across
+  several OpenRouter accounts (`OPENROUTER_API_KEYS`) to extend past one
+  account's free daily quota.
 - **Zero paid services** — OpenRouter's free-tier models, a free Postgres
   database (e.g. Neon), and (optionally) your own already-logged-in Chrome
   session for SERP fetching.
