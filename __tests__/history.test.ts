@@ -41,6 +41,7 @@ function buildReport(): RunReport {
         recommendedNewSections: [],
       },
     ],
+    sourceInsights: [],
     contacts: [
       { domain: "other.com", emails: ["hi@other.com"], contactPageUrl: null, socialLinks: [], confidence: "high" },
     ],

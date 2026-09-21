@@ -14,6 +14,7 @@ import { cleanAiOverviewText } from "@/lib/shared/aiOverviewText";
 import { chunk, delay, domainOf } from "@/lib/shared/chunk";
 import { localeForLang } from "@/lib/shared/lang";
 import type {
+  AiOverviewSourceReport,
   ContactInfo,
   GapReport,
   Lang,
@@ -49,6 +50,7 @@ export function AnalyzeClient() {
   const [fatalMessage, setFatalMessage] = useState("");
   const [retryingGaps, setRetryingGaps] = useState<Set<string>>(new Set());
   const [retryingSerp, setRetryingSerp] = useState<Set<string>>(new Set());
+  const [retryingSourceInsights, setRetryingSourceInsights] = useState<Set<string>>(new Set());
   const started = useRef(false);
   const runReportRef = useRef<RunReport | null>(null);
   const okPagesRef = useRef<PageContent[]>([]);
@@ -76,6 +78,7 @@ export function AnalyzeClient() {
         pageQueries: [],
         serpResults: [],
         gapReports: [],
+        sourceInsights: [],
         contacts: [],
       };
       runReportRef.current = runReport;
@@ -313,6 +316,45 @@ export function AnalyzeClient() {
       runReport.gapReports = gapReports;
       setReport({ ...runReport });
 
+      const queriesWithAioSources = serpResults.filter(
+        (serp) => (serp.aiOverview?.sourceCards?.length ?? 0) > 0,
+      );
+      if (queriesWithAioSources.length > 0) {
+        addLog(
+          "aio-sources",
+          "Checking why Google's AI Overview cited each source...",
+          "pending",
+        );
+        const sourceInsights: AiOverviewSourceReport[] = [];
+        for (const serp of queriesWithAioSources) {
+          let sourceReport: AiOverviewSourceReport | null;
+          try {
+            const res = await postJson<{ sourceReport: AiOverviewSourceReport | null }>(
+              "/api/analyze/source-insights",
+              { serp },
+            );
+            sourceReport = res.sourceReport;
+          } catch (err) {
+            sourceReport = {
+              query: serp.query,
+              insights: [],
+              error: err instanceof Error ? err.message : "AI Overview source analysis failed",
+            };
+          }
+          if (sourceReport) sourceInsights.push(sourceReport);
+          addLog(
+            "aio-sources",
+            sourceReport?.error
+              ? `"${serp.query}" — ${sourceReport.error}`
+              : `"${serp.query}" — analyzed ${sourceReport?.insights.length ?? 0} cited source(s)`,
+            sourceReport?.error ? "error" : "success",
+          );
+          await delay(LLM_DELAY_MS);
+        }
+        runReport.sourceInsights = sourceInsights;
+        setReport({ ...runReport });
+      }
+
       addLog(
         "contacts",
         "Finding public contact info on competing sites...",
@@ -465,6 +507,45 @@ export function AnalyzeClient() {
     });
   }
 
+  async function retrySourceInsights(query: string) {
+    const runReport = runReportRef.current;
+    if (!runReport) return;
+
+    const serp = runReport.serpResults.find((s) => s.query === query);
+    if (!serp) return;
+
+    setRetryingSourceInsights((prev) => new Set(prev).add(query));
+
+    let sourceReport: AiOverviewSourceReport | null;
+    try {
+      const res = await postJson<{ sourceReport: AiOverviewSourceReport | null }>(
+        "/api/analyze/source-insights",
+        { serp },
+      );
+      sourceReport = res.sourceReport;
+    } catch (err) {
+      sourceReport = {
+        query,
+        insights: [],
+        error: err instanceof Error ? err.message : "AI Overview source analysis failed",
+      };
+    }
+
+    if (sourceReport) {
+      const exists = runReport.sourceInsights.some((r) => r.query === query);
+      runReport.sourceInsights = exists
+        ? runReport.sourceInsights.map((r) => (r.query === query ? sourceReport! : r))
+        : [...runReport.sourceInsights, sourceReport];
+      setReport({ ...runReport });
+    }
+
+    setRetryingSourceInsights((prev) => {
+      const next = new Set(prev);
+      next.delete(query);
+      return next;
+    });
+  }
+
   if (!siteUrl) {
     return <p className="text-sm text-red-500">No URL provided.</p>;
   }
@@ -536,6 +617,8 @@ export function AnalyzeClient() {
             retryingGaps={retryingGaps}
             onRetrySerp={retrySerp}
             retryingSerp={retryingSerp}
+            onRetrySourceInsights={retrySourceInsights}
+            retryingSourceInsights={retryingSourceInsights}
           />
         </>
       )}

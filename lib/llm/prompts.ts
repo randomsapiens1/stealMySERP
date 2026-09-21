@@ -100,3 +100,27 @@ ${relatedSearches.join(", ") || "none"}
 Google's AI Overview for this query:
 ${aiOverview ? `${aiOverview.text}\nCited sources: ${aiOverview.sources.join(", ") || "none shown"}` : "not shown for this query"}`;
 }
+
+export function aiOverviewSourcesSystemPrompt(): string {
+  return `You are an SEO analyst investigating Google's AI Overview citations. Given a target search query, the AI Overview's generated answer text, and the list of sources it cited (url + title), explain for EACH source why Google's AI likely chose to cite it for that specific query — what it probably contributes to the answer (a stat, a definition, a step, an authoritative angle, etc).
+Also flag topic drift: set "topicDrift": true for a source whose title/url suggests its content is about a broader, narrower, or adjacent topic rather than directly answering the query as typed — i.e. Google's AI is citing something that has fanned out from the literal query. When true, "driftReason" explains what it drifted toward. When false, "driftReason" is an empty string.
+Respond with ONLY valid JSON, no prose, no markdown fences, matching this shape:
+{"insights": [{"url": string, "title": string, "whySuggested": string, "topicDrift": boolean, "driftReason": string}]}
+Include exactly one entry per source given, in the same order, using the exact url given for each.`;
+}
+
+export function aiOverviewSourcesUserPrompt(params: {
+  query: string;
+  aiOverviewText: string;
+  sourceCards: { url: string; title: string }[];
+}): string {
+  const { query, aiOverviewText, sourceCards } = params;
+
+  return `Target query: "${query}"
+
+AI Overview answer:
+${aiOverviewText}
+
+Cited sources:
+${sourceCards.map((c, i) => `${i + 1}. ${c.title || "(untitled)"} — ${c.url}`).join("\n")}`;
+}

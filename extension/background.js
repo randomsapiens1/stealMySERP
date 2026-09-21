@@ -189,7 +189,69 @@ function extractSerpFromPage(searchedQuery) {
     }
   }
 
-  return { blocked: false, top10, paa, relatedSearches, aiOverview };
+  // --- AI Overview citations (for the n8n citation-tracking webhook) ---
+  // Separate from the aiOverview heuristic above: this targets Google's
+  // dedicated AI Overview subtree directly and extracts the outbound
+  // citation links, which the marker-based heuristic above doesn't collect
+  // in a structured (url, title) form.
+  const aioEl = document.querySelector('[data-subtree="aimc"]');
+  let aio_answer = "";
+  const cited = [];
+  if (aioEl) {
+    aio_answer = (aioEl.innerText || "")
+      .replace(/^\s*(AI Overview|View all)\s*/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    const seen = new Set();
+    for (const a of aioEl.querySelectorAll('a[href^="http"]')) {
+      let href = a.href;
+      if (href.includes("/url?q=")) {
+        try {
+          href = new URL(href).searchParams.get("q") || href;
+        } catch (e) {}
+      }
+      let host;
+      try {
+        host = new URL(href).hostname.replace(/^www\./, "");
+      } catch (e) {
+        continue;
+      }
+      if (host.endsWith("google.com")) continue;
+      if (host === "youtube.com" || host === "youtu.be") continue;
+      href = href.split("#")[0];
+      if (seen.has(href)) continue;
+      seen.add(href);
+      cited.push({ url: href, title: (a.innerText || "").trim() });
+    }
+  }
+
+  // Fold the structured (url, title) citation cards into aiOverview.sourceCards
+  // — richer than aiOverview.sources (URL-only, from the looser marker
+  // heuristic above). If the marker heuristic missed the overview entirely
+  // but the aimc subtree caught it, fall back to building aiOverview from
+  // aio_answer/cited so the caller still gets something.
+  if (cited.length) {
+    if (aiOverview) {
+      aiOverview.sourceCards = cited;
+    } else if (aio_answer.length >= 100) {
+      aiOverview = {
+        text: aio_answer,
+        sources: cited.map((c) => c.url),
+        sourceCards: cited,
+      };
+    }
+  }
+
+  return { blocked: false, top10, paa, relatedSearches, aiOverview, aio_answer, cited };
+}
+
+async function grabSerp(tabId, query) {
+  const [{ result }] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: extractSerpFromPage,
+    args: [query],
+  });
+  return result;
 }
 
 async function handleSerpSearch({ query, hl, gl }) {
@@ -201,11 +263,17 @@ async function handleSerpSearch({ query, hl, gl }) {
   await waitForTabComplete(tabId);
   await new Promise((resolve) => setTimeout(resolve, SETTLE_DELAY_MS));
 
-  const [{ result }] = await chrome.scripting.executeScript({
-    target: { tabId },
-    func: extractSerpFromPage,
-    args: [query],
-  });
+  let result = await grabSerp(tabId, query);
+
+  // The aimc citation-card subtree mounts after the rest of the AI Overview
+  // (which the marker heuristic above can already see) — so it's common for
+  // aiOverview to be present but cited to still be empty on the first
+  // scrape. Only worth the extra wait when an overview was actually found;
+  // most queries have none and shouldn't pay this cost.
+  for (let i = 0; i < 6 && result.aiOverview && !(result.cited && result.cited.length); i++) {
+    await new Promise((r) => setTimeout(r, 700));
+    result = await grabSerp(tabId, query);
+  }
 
   if (result.blocked) {
     return {
@@ -219,6 +287,56 @@ async function handleSerpSearch({ query, hl, gl }) {
 
   return result;
 }
+
+// Standalone popup-triggered flow: search, wait for the AI Overview to
+// stream in, then post any citations found to the local n8n webhook.
+// Independent of handleSerpSearch/the web app's SERP_SEARCH channel, but
+// shares the same queue and dedicated tab so the two never race each other.
+async function handleAioCheck({ query, myUrl }) {
+  await randomDelay();
+  const tabId = await getOrCreateTab();
+  const url = buildSearchUrl(query, "en", "us");
+
+  await chrome.tabs.update(tabId, { url });
+  await waitForTabComplete(tabId);
+  await new Promise((resolve) => setTimeout(resolve, SETTLE_DELAY_MS));
+
+  let result = await grabSerp(tabId, query);
+  // AIO renders after the rest of the page, so a single scrape usually
+  // catches nothing — keep re-scraping the same loaded page until it shows up.
+  for (let i = 0; i < 12 && !(result.cited && result.cited.length); i++) {
+    await new Promise((r) => setTimeout(r, 700));
+    result = await grabSerp(tabId, query);
+  }
+
+  if (!result.cited || !result.cited.length) {
+    return { posted: false, aio_answer: result.aio_answer || "", cited: [] };
+  }
+
+  await fetch("http://localhost:5678/webhook/aio", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      keyword: query,
+      my_url: myUrl,
+      aio_answer: result.aio_answer,
+      cited: result.cited,
+    }),
+  }).catch((e) => console.log("n8n post failed", e));
+
+  return { posted: true, aio_answer: result.aio_answer, cited: result.cited };
+}
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type !== "AIO_CHECK") return false;
+
+  queue = queue
+    .then(() => handleAioCheck(message))
+    .then(sendResponse)
+    .catch((err) => sendResponse({ posted: false, error: String(err && err.message ? err.message : err) }));
+
+  return true; // keep the message channel open for the async sendResponse
+});
 
 chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) => {
   // Answered immediately, outside the search queue, so the web app can

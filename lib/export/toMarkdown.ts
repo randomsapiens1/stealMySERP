@@ -50,7 +50,18 @@ export function toMarkdown(report: RunReport): string {
 
     if (serp.aiOverview) {
       lines.push(`**Google AI Overview:** ${serp.aiOverview.text}`);
-      if (serp.aiOverview.sources.length) {
+      const sourceReport = report.sourceInsights.find((r) => r.query === serp.query);
+      if (sourceReport && sourceReport.insights.length) {
+        lines.push(`_Cited sources — why cited & fan-out check:_`);
+        for (const insight of sourceReport.insights) {
+          const drift = insight.topicDrift ? ` (fanned out: ${insight.driftReason})` : "";
+          lines.push(`- ${insight.title || insight.url} — ${insight.whySuggested}${drift}`);
+        }
+      } else if (serp.aiOverview.sourceCards?.length) {
+        lines.push(
+          `_Cited: ${serp.aiOverview.sourceCards.map((c) => c.title || c.url).join(", ")}_`
+        );
+      } else if (serp.aiOverview.sources.length) {
         lines.push(`_Cited: ${serp.aiOverview.sources.join(", ")}_`);
       }
       lines.push("");

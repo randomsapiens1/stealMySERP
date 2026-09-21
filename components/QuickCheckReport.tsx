@@ -131,10 +131,32 @@ function QueryDetail({ serp }: { serp: SerpResult }) {
           <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">
             {serp.aiOverview.text}
           </p>
-          {serp.aiOverview.sources.length > 0 && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-              Cited: {serp.aiOverview.sources.join(", ")}
-            </p>
+          {serp.aiOverview.sourceCards && serp.aiOverview.sourceCards.length > 0 ? (
+            <div className="mt-2">
+              <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                Cited sources:
+              </div>
+              <ul className="space-y-0.5">
+                {serp.aiOverview.sourceCards.map((card) => (
+                  <li key={card.url} className="text-xs">
+                    <a
+                      href={card.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="hover:underline break-all"
+                    >
+                      {card.title || card.url}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            serp.aiOverview.sources.length > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                Cited: {serp.aiOverview.sources.join(", ")}
+              </p>
+            )
           )}
         </div>
       )}

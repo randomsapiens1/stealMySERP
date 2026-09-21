@@ -32,6 +32,37 @@
         border-top: 1px solid #eee;
         padding-top: 8px;
       }
+      .aioCheck {
+        border-top: 1px solid #eee;
+        margin-top: 10px;
+        padding-top: 10px;
+      }
+      .aioCheck label {
+        display: block;
+        font-size: 11px;
+        color: #666;
+        margin-bottom: 2px;
+      }
+      .aioCheck input {
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 12px;
+        padding: 5px 6px;
+        margin-bottom: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      .aioCheck button {
+        width: 100%;
+        font-size: 12px;
+        padding: 6px;
+        cursor: pointer;
+      }
+      #aioStatus {
+        margin-top: 8px;
+        font-size: 11px;
+        color: #555;
+      }
     </style>
   </head>
   <body>
@@ -40,6 +71,14 @@
     <div id="status">
       Ready. The StealMySERP app talks to this extension directly — no need to click
       anything here unless things aren't working.
+    </div>
+    <div class="aioCheck">
+      <label for="aioQuery">Keyword</label>
+      <input id="aioQuery" type="text" placeholder="e.g. photosynthesis" />
+      <label for="aioUrl">Your page URL</label>
+      <input id="aioUrl" type="text" placeholder="https://example.com/your-page" />
+      <button id="aioCheckBtn">Check AI Overview citation</button>
+      <div id="aioStatus"></div>
     </div>
     <div id="extensionId"></div>
     <script src="popup.js"></script>

@@ -57,9 +57,37 @@ export interface SerpOrganicResult {
   snippet: string;
 }
 
+export interface AiOverviewSourceCard {
+  url: string;
+  title: string;
+}
+
 export interface AiOverview {
   text: string;
   sources: string[];
+  // Structured (url, title) cards pulled from Google's dedicated AI
+  // Overview citation subtree — only reliably populated by the extension
+  // bridge (see extension/background.js). Richer than `sources` (which is
+  // URL-only and comes from a looser heuristic), so prefer this when present.
+  sourceCards?: AiOverviewSourceCard[];
+}
+
+export interface AiOverviewSourceInsight {
+  url: string;
+  title: string;
+  // LLM's best guess at why Google's AI Overview included this source for
+  // the query.
+  whySuggested: string;
+  // Flagged true when this source's apparent topic has drifted away from
+  // the selected query rather than directly answering it.
+  topicDrift: boolean;
+  driftReason: string;
+}
+
+export interface AiOverviewSourceReport {
+  query: string;
+  insights: AiOverviewSourceInsight[];
+  error?: string;
 }
 
 export interface SerpResult {
@@ -110,5 +138,6 @@ export interface RunReport {
   pageQueries: PageQueries[];
   serpResults: SerpResult[];
   gapReports: GapReport[];
+  sourceInsights: AiOverviewSourceReport[];
   contacts: ContactInfo[];
 }
