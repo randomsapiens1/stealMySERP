@@ -12,7 +12,7 @@ export default async function SiteHistoryPage({ params }: { params: Promise<{ si
           href="/history"
           className="inline-block mb-6 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
         >
-          ← All websites
+          ← Back to monitored websites
         </Link>
         <SiteHistoryView site={decodedSite} />
       </div>

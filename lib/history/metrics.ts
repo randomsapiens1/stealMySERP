@@ -22,6 +22,10 @@ export function pagePathLabel(key: string): string {
   return key === "/" ? "/ (home)" : key;
 }
 
+export function fullDateLabel(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+}
+
 export function runHeaderLabel(analyzedAt: string): { date: string; time: string } {
   const d = new Date(analyzedAt);
   return {
@@ -85,6 +89,29 @@ export interface SiteStats {
   bestRank: number | null;
   gapCount: number;
   contactCount: number;
+  keywordCount: number;
+  avgRank: number | null;
+  rankedCount: number;
+  top3Count: number;
+  strikingDistanceCount: number;
+  rankHistory: number[];
+}
+
+// One point per audit run (chronological), averaging that run's ranked
+// queries — used to draw the rank-trend sparkline.
+function rankHistoryForRecords(records: AnalyzedPageRecord[]): number[] {
+  const byRun = new Map<string, number[]>();
+  for (const r of records) {
+    for (const q of r.queries) {
+      if (q.verifiedRank === null) continue;
+      const ranks = byRun.get(r.analyzedAt) ?? [];
+      ranks.push(q.verifiedRank);
+      byRun.set(r.analyzedAt, ranks);
+    }
+  }
+  return Array.from(byRun.entries())
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([, ranks]) => ranks.reduce((s, v) => s + v, 0) / ranks.length);
 }
 
 function computeSiteStats(site: string, records: AnalyzedPageRecord[]): SiteStats {
@@ -93,6 +120,9 @@ function computeSiteStats(site: string, records: AnalyzedPageRecord[]): SiteStat
   const rankedQueries = queries.filter((q) => q.verifiedRank !== null);
   const top10 = rankedQueries.filter((q) => (q.verifiedRank as number) <= 10).length;
   const top3 = rankedQueries.filter((q) => (q.verifiedRank as number) <= 3).length;
+  const strikingDistanceCount = rankedQueries.filter(
+    (q) => (q.verifiedRank as number) >= 11 && (q.verifiedRank as number) <= 20
+  ).length;
   const pagesWithRank = latest.filter((r) => bestRank(r) !== null).length;
   const gapCount = latest.reduce(
     (n, r) => n + r.gapReports.reduce((m, g) => m + g.contentGaps.length, 0),
@@ -118,7 +148,52 @@ function computeSiteStats(site: string, records: AnalyzedPageRecord[]): SiteStat
     bestRank: rankedQueries.length === 0 ? null : Math.min(...rankedQueries.map((q) => q.verifiedRank as number)),
     gapCount,
     contactCount: contactDomains.size,
+    keywordCount: queries.length,
+    avgRank:
+      rankedQueries.length === 0
+        ? null
+        : Math.round((rankedQueries.reduce((s, q) => s + (q.verifiedRank as number), 0) / rankedQueries.length) * 10) /
+          10,
+    rankedCount: rankedQueries.length,
+    top3Count: top3,
+    strikingDistanceCount,
+    rankHistory: rankHistoryForRecords(records),
   };
+}
+
+export interface OverviewStats {
+  totalWebsites: number;
+  totalKeywords: number;
+  rankedKeywords: number;
+  avgRankingPosition: number | null;
+  strikingDistanceCount: number;
+  newSitesThisWeek: number;
+}
+
+export function computeOverview(groups: SiteStats[]): OverviewStats {
+  const totalKeywords = groups.reduce((n, g) => n + g.keywordCount, 0);
+  const rankedKeywords = groups.reduce((n, g) => n + g.rankedCount, 0);
+  const rankSum = groups.reduce((n, g) => n + (g.avgRank ?? 0) * g.rankedCount, 0);
+  const weekAgo = Date.now() - 1000 * 60 * 60 * 24 * 7;
+  const newSitesThisWeek = groups.filter((g) =>
+    g.records.some((r) => new Date(r.analyzedAt).getTime() >= weekAgo)
+  ).length;
+
+  return {
+    totalWebsites: groups.length,
+    totalKeywords,
+    rankedKeywords,
+    avgRankingPosition: rankedKeywords === 0 ? null : Math.round((rankSum / rankedKeywords) * 10) / 10,
+    strikingDistanceCount: groups.reduce((n, g) => n + g.strikingDistanceCount, 0),
+    newSitesThisWeek,
+  };
+}
+
+export function gapSeverity(count: number): { label: string; tone: "low" | "medium" | "high" } | null {
+  if (count <= 0) return null;
+  if (count <= 2) return { label: "Low", tone: "low" };
+  if (count <= 6) return { label: "Medium", tone: "medium" };
+  return { label: "High", tone: "high" };
 }
 
 export function groupBySite(records: AnalyzedPageRecord[]): SiteStats[] {

@@ -21,9 +21,13 @@ async function ensureSchema(db: NeonQueryFunction<false, false>): Promise<void> 
       analyzed_at TEXT NOT NULL,
       queries_json TEXT NOT NULL,
       gap_reports_json TEXT NOT NULL,
-      contacts_json TEXT NOT NULL
+      contacts_json TEXT NOT NULL,
+      source_reports_json TEXT NOT NULL DEFAULT '[]'
     )
   `;
+  // Backfills the column for tables created before AI Overview source
+  // insights were persisted — a no-op once every environment has run this.
+  await db`ALTER TABLE analyzed_pages ADD COLUMN IF NOT EXISTS source_reports_json TEXT NOT NULL DEFAULT '[]'`;
   await db`CREATE INDEX IF NOT EXISTS idx_analyzed_pages_site_url ON analyzed_pages(site_url)`;
   await db`CREATE INDEX IF NOT EXISTS idx_analyzed_pages_analyzed_at ON analyzed_pages(analyzed_at)`;
 }

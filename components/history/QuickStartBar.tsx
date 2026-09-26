@@ -1,13 +1,29 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { MODES, type Mode, modeHref } from "@/lib/shared/modes";
+
+// Lets other dashboard controls (e.g. the Quick Actions panel) jump the
+// user here with a mode preselected, instead of duplicating this form.
+export const QUICKSTART_FOCUS_EVENT = "sms:focus-quickstart";
 
 export function QuickStartBar() {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [mode, setMode] = useState<Mode>("full");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    function onFocusRequest(e: Event) {
+      const requestedMode = (e as CustomEvent<{ mode?: Mode }>).detail?.mode;
+      if (requestedMode) setMode(requestedMode);
+      inputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      inputRef.current?.focus();
+    }
+    window.addEventListener(QUICKSTART_FOCUS_EVENT, onFocusRequest);
+    return () => window.removeEventListener(QUICKSTART_FOCUS_EVENT, onFocusRequest);
+  }, []);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -20,6 +36,7 @@ export function QuickStartBar() {
       <p className="text-sm font-medium mb-3">Analyze a link</p>
       <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
         <input
+          ref={inputRef}
           type="url"
           required
           placeholder="Enter a URL to check — https://yoursite.com"
